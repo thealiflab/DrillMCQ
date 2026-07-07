@@ -1,4 +1,4 @@
-import { useDeferredValue, useMemo, useRef, useState, type ChangeEvent } from 'react'
+import { useDeferredValue, useMemo, useState } from 'react'
 import type { QuizQuestion } from '../types/quiz'
 import { parseMcqText } from '../utils/parseMcqText'
 
@@ -26,7 +26,6 @@ Explanation: The mitochondrion (plural: mitochondria) is the powerhouse of the c
  */
 export function TextUploader({ onLoad }: TextUploaderProps) {
   const [text, setText] = useState('')
-  const fileInputRef = useRef<HTMLInputElement>(null)
 
   // Defer parsing so fast typing never blocks the input.
   const deferredText = useDeferredValue(text)
@@ -34,15 +33,6 @@ export function TextUploader({ onLoad }: TextUploaderProps) {
 
   const warnings = parsed.issues.filter((i) => i.severity === 'warning')
   const hasInput = deferredText.trim() !== ''
-
-  const handleFile = (event: ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0]
-    if (!file) return
-    const reader = new FileReader()
-    reader.onload = () => setText(String(reader.result ?? ''))
-    reader.readAsText(file)
-    event.target.value = ''
-  }
 
   return (
     <div className="space-y-4">
@@ -159,31 +149,14 @@ export function TextUploader({ onLoad }: TextUploaderProps) {
         </div>
       )}
 
-      <div className="flex flex-wrap items-center gap-3">
-        <button
-          type="button"
-          onClick={() => onLoad(parsed.questions)}
-          disabled={parsed.questions.length === 0}
-          className="rounded-xl bg-indigo-600 px-5 py-2.5 font-medium text-white shadow-sm transition-colors hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-50"
-        >
-          Generate quiz{parsed.questions.length > 0 ? ` (${parsed.questions.length})` : ''}
-        </button>
-        <button
-          type="button"
-          onClick={() => fileInputRef.current?.click()}
-          className="rounded-xl border border-slate-300 bg-white px-5 py-2.5 font-medium shadow-sm transition-colors hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:hover:bg-slate-800"
-        >
-          Upload .txt file
-        </button>
-        <input
-          ref={fileInputRef}
-          type="file"
-          accept=".txt,.md,text/plain"
-          onChange={handleFile}
-          className="hidden"
-          aria-label="Upload plain text question file"
-        />
-      </div>
+      <button
+        type="button"
+        onClick={() => onLoad(parsed.questions)}
+        disabled={parsed.questions.length === 0}
+        className="rounded-xl bg-indigo-600 px-5 py-2.5 font-medium text-white shadow-sm transition-colors hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-50"
+      >
+        Generate quiz{parsed.questions.length > 0 ? ` (${parsed.questions.length})` : ''}
+      </button>
     </div>
   )
 }

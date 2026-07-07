@@ -1,4 +1,4 @@
-import { useRef, useState, type ChangeEvent } from 'react'
+import { useState } from 'react'
 import type { QuizQuestion } from '../types/quiz'
 import { parseQuizJson } from '../utils/quiz'
 
@@ -19,13 +19,12 @@ const SCHEMA_EXAMPLE = `[
 ]`
 
 /**
- * Quiz import: paste JSON into the textarea or upload a .json file.
+ * Quiz import: paste JSON into the textarea.
  * Validates the payload and surfaces a friendly error when it's malformed.
  */
 export function JsonUploader({ onLoad }: JsonUploaderProps) {
   const [text, setText] = useState('')
   const [error, setError] = useState<string | null>(null)
-  const fileInputRef = useRef<HTMLInputElement>(null)
 
   const tryLoad = (raw: string) => {
     const result = parseQuizJson(raw)
@@ -35,21 +34,6 @@ export function JsonUploader({ onLoad }: JsonUploaderProps) {
     } else {
       setError(result.error)
     }
-  }
-
-  const handleFile = (event: ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0]
-    if (!file) return
-    const reader = new FileReader()
-    reader.onload = () => {
-      const content = String(reader.result ?? '')
-      setText(content)
-      tryLoad(content)
-    }
-    reader.onerror = () => setError('Could not read that file. Please try again.')
-    reader.readAsText(file)
-    // Allow re-selecting the same file later.
-    event.target.value = ''
   }
 
   const loadSample = async () => {
@@ -97,26 +81,11 @@ export function JsonUploader({ onLoad }: JsonUploaderProps) {
         </button>
         <button
           type="button"
-          onClick={() => fileInputRef.current?.click()}
-          className="rounded-xl border border-slate-300 bg-white px-5 py-2.5 font-medium shadow-sm transition-colors hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:hover:bg-slate-800"
-        >
-          Upload .json file
-        </button>
-        <button
-          type="button"
           onClick={loadSample}
           className="px-2 py-2.5 text-sm font-medium text-indigo-600 hover:underline dark:text-indigo-400"
         >
           Try the sample quiz
         </button>
-        <input
-          ref={fileInputRef}
-          type="file"
-          accept=".json,application/json"
-          onChange={handleFile}
-          className="hidden"
-          aria-label="Upload quiz JSON file"
-        />
       </div>
     </div>
   )

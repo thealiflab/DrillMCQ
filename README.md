@@ -5,7 +5,7 @@ A modern, fully client-side quiz platform built with **React**, **TypeScript**, 
 ## Features
 
 - **Plain-text MCQ import** — paste raw exam dumps or practice questions; a smart parser detects questions, options (A/B/C/D, a/b/c/d, numbered, bulleted), answers, explanations, and categories, with a live preview and per-line error/warning reporting
-- **JSON import** — paste JSON into a textarea or upload a `.json` file, with friendly validation errors
+- **JSON import** — paste JSON into a textarea, with friendly validation errors
 - **Professional quiz engine** — one question at a time, progress bar, next/previous navigation
 - **Keyboard navigation** — `←`/`→` to move between questions, `1–8` or `A–H` to select answers
 - **Results & review** — score, percentage, per-question review with correct/incorrect indicators
@@ -193,7 +193,7 @@ src/
  │    ├── ThemeToggle.tsx      # Dark/light mode switch
  │    ├── QuizImporter.tsx     # Tabbed import (plain text / JSON)
  │    ├── TextUploader.tsx     # Plain-text MCQ import with live preview
- │    └── JsonUploader.tsx     # Paste / upload JSON import
+ │    └── JsonUploader.tsx     # Paste JSON import
  ├── hooks/
  │    ├── useQuiz.ts           # Quiz state machine + persistence
  │    ├── useTheme.ts          # Theme state
