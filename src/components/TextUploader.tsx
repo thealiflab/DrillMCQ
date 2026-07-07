@@ -76,6 +76,11 @@ export function TextUploader({ onLoad }: TextUploaderProps) {
               {parsed.skipped} skipped
             </span>
           )}
+          {parsed.ignored > 0 && (
+            <span className="rounded-full bg-slate-100 px-3 py-1 font-medium text-slate-500 dark:bg-slate-800 dark:text-slate-400">
+              {parsed.ignored} clutter line{parsed.ignored === 1 ? '' : 's'} ignored
+            </span>
+          )}
           {warnings.length > 0 && (
             <span className="rounded-full bg-amber-100 px-3 py-1 font-medium text-amber-700 dark:bg-amber-950 dark:text-amber-400">
               {warnings.length} warning{warnings.length === 1 ? '' : 's'}

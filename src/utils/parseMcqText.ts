@@ -15,6 +15,10 @@ import type { QuizQuestion } from '../types/quiz'
  *   Answer: B | Correct Answer: Canberra | Ans: 3
  *   Explanation: ... | Reason: ...
  *   Category: ... | Topic: ...
+ *
+ * Clutter copied along from websites/PDFs (ads, page numbers, "Show Answer"
+ * buttons, share widgets, breadcrumbs, copyright footers, …) is recognized by
+ * NOISE_RES and silently ignored, reported via `ignored`.
  */
 
 export type IssueSeverity = 'error' | 'warning'
@@ -31,12 +35,15 @@ export interface ParsedMcq {
   issues: ParseIssue[]
   /** Question blocks that were detected but dropped due to errors. */
   skipped: number
+  /** Lines ignored as website/PDF clutter (ads, page numbers, nav links, …). */
+  ignored: number
 }
 
 // --- line classification -------------------------------------------------
 
 type LineKind =
   | 'blank'
+  | 'noise'
   | 'answer'
   | 'explanation'
   | 'category'
@@ -54,6 +61,56 @@ interface Classified {
   label?: string
 }
 
+/**
+ * Clutter that rides along when copying from websites, PDFs, blogs, or exam
+ * dumps. Every pattern is anchored to the whole (trimmed) line so real
+ * content — "A. Share price rises", "1. Facebook was founded in…" — never
+ * matches: the option/number marker keeps the line from matching full-line.
+ */
+const NOISE_RES: RegExp[] = [
+  // Bare URLs and emails on their own line.
+  /^(?:https?:\/\/|www\.)\S+$/i,
+  /^\S+@\S+\.\S{2,}$/,
+  // Horizontal rules / decorative separators: ----, ====, ***, ····
+  /^[-=_*~#•·.]{3,}$/,
+  // Copyright and footer boilerplate.
+  /^(?:©|\(c\)\s*\d{4}|copyright\s*(?:©|\(c\)|\d{4})).*$/i,
+  /\ball rights reserved\b/i,
+  /^downloaded from\b.*$/i,
+  // Ads.
+  /^(?:advertisements?|sponsored(?:\s+(?:links?|content|posts?))?|promoted)$/i,
+  // Page numbers: "Page 3", "Page 3 of 10", "3 / 10", "3 of 10", lone "3".
+  /^page\s*\d+(?:\s*(?:of|\/|-)\s*\d+)?$/i,
+  /^\d{1,4}\s*(?:of|\/)\s*\d{1,4}$/i,
+  /^\d{1,4}$/,
+  // Quiz-site UI chrome around the answer.
+  /^(?:show|hide|view|check|reveal|see|display)\s+(?:the\s+)?(?:correct\s+)?answer[.!»→]*$/i,
+  /^answer\s*[&/]\s*(?:explanation|solution)$/i,
+  /^(?:answer|solution|explanation)$/i,
+  // Navigation buttons and quiz controls.
+  /^[«‹<←]*\s*(?:next|previous|prev|back|submit|skip|continue|finish|start\s+quiz|restart|try\s+again)(?:\s+(?:question|quiz|page))?\s*[»›>→]*$/i,
+  // Social / engagement widgets.
+  /^(?:share(?:\s+(?:this|on|via)\b.*)?|print|bookmark|save|like|upvote|downvote|report(?:\s+(?:this\s+)?(?:question|error|issue|ad))?|discuss(?:ion)?(?:\s+forum)?|comments?(?:\s*[(:]?\s*\d+\)?)?|reply|copy\s+link|follow\s+us\b.*)$/i,
+  /^(?:facebook|twitter|whatsapp|telegram|linkedin|instagram|pinterest|reddit|youtube)$/i,
+  // Breadcrumb trails: "Home > Exams > AWS Practice Test".
+  /^(?:home|index)\s*[>»/].*$/i,
+  // Calls to action and link teasers.
+  /^(?:read\s+more\b.*|learn\s+more\b.*|click\s+here\b.*|see\s+also\b.*|sign\s*up|log\s*in|login|register|subscribe|join\s+(?:us|now|our)\b.*|download\s+(?:pdf|app|now)\b.*|get\s+the\s+app\b.*|install\s+(?:our\s+)?app\b.*|visit\b.*|also\s+read\b.*|related\s+(?:posts?|questions?|articles?|topics?)\b.*|(?:you\s+)?may\s+also\s+like\b.*|trending\b.*|popular\s+posts?\b.*)[:.…»→]*$/i,
+  // Author lines and timestamps.
+  /^(?:posted|published|updated|last\s+(?:updated|modified)|reviewed|created)\b.*$/i,
+  /^(?:by\s+admin|author\s*[:\-–—].*|written\s+by\b.*)$/i,
+  /^views?\s*[:\-–—]?\s*[\d,.]+[km]?$/i,
+  // Loading indicators.
+  /^(?:loading|please\s+wait)[.…]*$/i,
+  // Exam-dump metadata that isn't part of the question.
+  /^(?:marks?|difficulty|level|time(?:\s+limit)?|duration|negative\s+marking)\s*[:\-–—]\s*.+$/i,
+]
+
+function isNoise(line: string): boolean {
+  const trimmed = line.trim()
+  return NOISE_RES.some((re) => re.test(trimmed))
+}
+
 const ANSWER_RE = /^\s*(?:correct\s*answer|answer|ans|correct)\s*[:\-–—]\s*(.+)$/i
 const EXPLANATION_RE = /^\s*(?:explanation|reason|rationale|because|why)\s*[:\-–—]\s*(.*)$/i
 const CATEGORY_RE = /^\s*(?:category|topic|subject)\s*[:\-–—]\s*(.+)$/i
@@ -64,6 +121,9 @@ const QUESTION_HEADER_RE = /^\s*(?:question|q)\s*\d*\s*[:.)\]]\s*(.*)$/i
 
 function classify(line: string): Classified {
   if (line.trim() === '') return { kind: 'blank', value: '' }
+  // Noise wins before everything else: patterns are full-line anchored, so a
+  // real answer/option line ("Answer: B", "A. Share") can't be swallowed.
+  if (isNoise(line)) return { kind: 'noise', value: '' }
 
   let m = ANSWER_RE.exec(line)
   if (m) return { kind: 'answer', value: m[1].trim() }
@@ -160,8 +220,12 @@ export function parseMcqText(text: string): ParsedMcq {
     if (classified[i].kind !== 'numbered') continue
     let end = i
     while (end + 1 < classified.length && classified[end + 1].kind === 'numbered') end++
-    const isRun = end > i
-    for (let j = i; j <= end; j++) numberedIsOption[j] = isRun
+    // A numbered line that reads like a question ("2. What is 6 x 7?")
+    // directly followed by ≥2 numbered options is a header, not an option.
+    let start = i
+    if (end - start >= 2 && /[?:]$/.test(classified[start].value)) start++
+    const isRun = end > start
+    for (let j = i; j <= end; j++) numberedIsOption[j] = isRun && j >= start
     i = end
   }
 
@@ -170,6 +234,7 @@ export function parseMcqText(text: string): ParsedMcq {
   let current = emptyRaw(1)
   let inExplanation = false
   let lastWasBlank = false
+  let ignored = 0
 
   const flush = (nextStart: number) => {
     if (hasContent(current)) rawQuestions.push(current)
@@ -185,6 +250,13 @@ export function parseMcqText(text: string): ParsedMcq {
       case 'blank':
         // Blank lines end an explanation block but are otherwise soft separators.
         inExplanation = false
+        break
+
+      case 'noise':
+        // Website/PDF clutter: invisible to the question being built, but it
+        // separates content like a blank line does (ads and nav chrome sit at
+        // question boundaries), so prose after it starts a new question.
+        ignored++
         break
 
       case 'answer':
@@ -255,7 +327,7 @@ export function parseMcqText(text: string): ParsedMcq {
         break
     }
 
-    lastWasBlank = kind === 'blank'
+    lastWasBlank = kind === 'blank' || kind === 'noise'
   }
   flush(lines.length)
 
@@ -336,5 +408,5 @@ export function parseMcqText(text: string): ParsedMcq {
     })
   }
 
-  return { questions, issues, skipped }
+  return { questions, issues, skipped, ignored }
 }
