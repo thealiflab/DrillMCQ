@@ -4,6 +4,7 @@ A modern, fully client-side quiz platform built with **React**, **TypeScript**, 
 
 ## Features
 
+- **Plain-text MCQ import** — paste raw exam dumps or practice questions; a smart parser detects questions, options (A/B/C/D, a/b/c/d, numbered, bulleted), answers, explanations, and categories, with a live preview and per-line error/warning reporting
 - **JSON import** — paste JSON into a textarea or upload a `.json` file, with friendly validation errors
 - **Professional quiz engine** — one question at a time, progress bar, next/previous navigation
 - **Keyboard navigation** — `←`/`→` to move between questions, `1–8` or `A–H` to select answers
@@ -72,6 +73,47 @@ npm run preview
 ```bash
 npm run lint
 ```
+
+## Plain Text Format
+
+The **Plain text** tab accepts loosely formatted MCQ content. All of these work (and can be mixed in one paste):
+
+```text
+1. What does AWS stand for?
+
+A. Advanced Web System
+B. Amazon Web Services
+C. Automated Web Solution
+D. Application Web Service
+
+Answer: B
+Explanation: AWS stands for Amazon Web Services.
+
+What is the capital of Australia?
+a) Sydney
+b) Melbourne
+c) Canberra
+d) Perth
+
+Correct Answer: Canberra
+
+Question: Which language runs in the browser?
+- Python
+- Java
+- JavaScript
+- C++
+
+Answer: JavaScript
+```
+
+Parsing rules:
+
+- **Questions** start with a number (`1.`), a header (`Q1.`, `Question:`), or plain text after a completed question
+- **Options** may be lettered (`A.`, `a)`, `(B)`), bulleted (`-`, `*`, `•`), or numbered (a run of 2+ numbered lines under a question)
+- **Answers** use `Answer:`, `Ans:`, `Correct Answer:`, or `Correct:` followed by a letter, number, or the option text itself
+- **Explanations** use `Explanation:`, `Reason:`, `Rationale:`, `Because:`, or `Why:`
+- **Categories** use `Category:`, `Topic:`, or `Subject:`
+- Malformed questions are skipped with a per-line error message; the rest of the bank still loads
 
 ## Quiz JSON Schema
 
@@ -149,6 +191,8 @@ src/
  │    ├── ResultScreen.tsx     # Score summary + answer review
  │    ├── ExplanationPanel.tsx # Expandable explanation
  │    ├── ThemeToggle.tsx      # Dark/light mode switch
+ │    ├── QuizImporter.tsx     # Tabbed import (plain text / JSON)
+ │    ├── TextUploader.tsx     # Plain-text MCQ import with live preview
  │    └── JsonUploader.tsx     # Paste / upload JSON import
  ├── hooks/
  │    ├── useQuiz.ts           # Quiz state machine + persistence
@@ -159,7 +203,8 @@ src/
  ├── types/
  │    └── quiz.ts              # Shared TypeScript types
  ├── utils/
- │    └── quiz.ts              # Validation, shuffling, scoring
+ │    ├── quiz.ts              # Validation, shuffling, scoring
+ │    └── parseMcqText.ts      # Plain-text MCQ parser
  ├── data/
  │    └── sampleQuiz.json      # Sample quiz dataset
  ├── App.tsx

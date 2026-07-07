@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { JsonUploader } from './components/JsonUploader'
+import { QuizImporter } from './components/QuizImporter'
 import { ProgressBar } from './components/ProgressBar'
 import { QuizCard } from './components/QuizCard'
 import { QuizSetup } from './components/QuizSetup'
@@ -27,7 +27,7 @@ export default function App() {
             🎯 Drill<span className="text-indigo-600 dark:text-indigo-400">MCQ</span>
           </h1>
           <p className="text-sm text-slate-500 dark:text-slate-400">
-            Paste JSON. Get a quiz. Entirely in your browser.
+            Paste questions. Get a quiz. Entirely in your browser.
           </p>
         </div>
         <ThemeToggle theme={theme} onToggle={toggleTheme} />
@@ -36,7 +36,7 @@ export default function App() {
       <main className="mx-auto max-w-3xl px-4 pb-16">
         {session === null && pendingQuestions === null && (
           <div className="animate-fade-slide-in rounded-2xl border border-slate-200 bg-white p-6 shadow-sm sm:p-8 dark:border-slate-800 dark:bg-slate-900">
-            <JsonUploader onLoad={setPendingQuestions} />
+            <QuizImporter onLoad={setPendingQuestions} />
           </div>
         )}
 
