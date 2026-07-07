@@ -9,23 +9,15 @@ interface TextUploaderProps {
 /** Cap the preview list so pasting a huge bank doesn't bloat the DOM. */
 const PREVIEW_LIMIT = 50
 
-const PLACEHOLDER = `1. What does AWS stand for?
+const PLACEHOLDER = `1. What is the powerhouse of the cell?
 
-A. Advanced Web System
-B. Amazon Web Services
-C. Automated Web Solution
-D. Application Web Service
+A. Nucleus
+B. Ribosomes
+C. Mitochondria
+D. Lysosomes
 
-Answer: B
-Explanation: AWS stands for Amazon Web Services.
-
-What is the capital of Australia?
-a) Sydney
-b) Melbourne
-c) Canberra
-d) Perth
-
-Correct Answer: Canberra`
+Answer: C
+Explanation: The mitochondrion (plural: mitochondria) is the powerhouse of the cell. These tiny, membrane-bound organelles take nutrients like glucose and oxygen and convert them into adenosine triphosphate (ATP), which is the primary energy currency that cells use to power bodily functions.`
 
 /**
  * Plain-text MCQ import: paste raw questions, watch a live parsing preview,

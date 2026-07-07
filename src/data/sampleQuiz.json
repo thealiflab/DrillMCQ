@@ -1,106 +1,117 @@
 [
   {
     "id": 1,
-    "question": "What does AWS stand for?",
-    "options": [
-      "Amazon Web Services",
-      "Advanced Web System",
-      "Application Web Services",
-      "Automated Web Solution"
-    ],
-    "correctAnswer": "Amazon Web Services",
-    "explanation": "AWS stands for Amazon Web Services, Amazon's cloud computing platform.",
-    "category": "Cloud",
-    "difficulty": "easy"
+    "question": "Which network protocol is primarily used to securely transfer files over a network?",
+    "options": ["FTP", "SFTP", "HTTP", "SMTP"],
+    "correctAnswer": "SFTP",
+    "explanation": "SFTP (Secure File Transfer Protocol) runs over SSH (Secure Shell) to provide secure file access, transfer, and management capabilities over a reliable data stream.",
+    "category": "Networking",
+    "difficulty": "medium"
   },
   {
     "id": 2,
-    "question": "Which AWS service is used for object storage?",
-    "options": ["EC2", "S3", "RDS", "Lambda"],
-    "correctAnswer": "S3",
-    "explanation": "Amazon S3 (Simple Storage Service) provides scalable object storage.",
-    "category": "Cloud",
-    "difficulty": "easy"
+    "question": "What does the 'ACID' acronym stand for in database management systems?",
+    "options": [
+      "Atomicity, Consistency, Isolation, Durability",
+      "Availability, Consistency, Integrity, Data",
+      "Automation, Concurrency, Indexing, Delivery",
+      "Access, Control, Identification, Backup"
+    ],
+    "correctAnswer": "Atomicity, Consistency, Isolation, Durability",
+    "explanation": "ACID is a set of properties (Atomicity, Consistency, Isolation, Durability) that guarantee database transactions are processed reliably and maintain data integrity.",
+    "category": "Databases",
+    "difficulty": "medium"
   },
   {
     "id": 3,
-    "question": "Which hook is used to manage state in a React function component?",
-    "options": ["useEffect", "useState", "useContext", "useRef"],
-    "correctAnswer": "useState",
-    "explanation": "useState returns a stateful value and a function to update it.",
-    "category": "React",
+    "question": "Which of the following is an example of a non-volatile memory type?",
+    "options": ["SRAM", "DRAM", "NVMe SSD", "CPU Cache"],
+    "correctAnswer": "NVMe SSD",
+    "explanation": "Non-volatile memory retains its saved data even when the device is powered off. Solid-state drives (SSDs) use flash memory, which is inherently non-volatile.",
+    "category": "Hardware",
     "difficulty": "easy"
   },
   {
     "id": 4,
-    "question": "In TypeScript, which keyword creates a type alias?",
-    "options": ["interface", "type", "alias", "typedef"],
-    "correctAnswer": "type",
-    "explanation": "The `type` keyword defines a type alias, e.g. `type ID = string | number`.",
-    "category": "TypeScript",
-    "difficulty": "easy"
-  },
-  {
-    "id": 5,
-    "question": "What is the output of `typeof null` in JavaScript?",
-    "options": ["\"null\"", "\"undefined\"", "\"object\"", "\"boolean\""],
-    "correctAnswer": "\"object\"",
-    "explanation": "A long-standing quirk of JavaScript: typeof null returns \"object\".",
-    "category": "JavaScript",
+    "question": "In Git, which command is used to download objects and refs from another repository but does not merge them into your local branch?",
+    "options": ["git pull", "git fetch", "git clone", "git checkout"],
+    "correctAnswer": "git fetch",
+    "explanation": "'git fetch' downloads the latest changes from a remote repository to your local machine but leaves your current working branch untouched, unlike 'git pull' which fetches and automatically merges.",
+    "category": "DevOps",
     "difficulty": "medium"
   },
   {
+    "id": 5,
+    "question": "What is the time complexity of searching for an element in a balanced Binary Search Tree (BST) in the worst-case scenario?",
+    "options": ["O(1)", "O(n)", "O(n log n)", "O(log n)"],
+    "correctAnswer": "O(log n)",
+    "explanation": "Because a balanced Binary Search Tree splits the search space roughly in half with each step, the worst-case time complexity to find an element is logarithmic, or O(log n).",
+    "category": "Data Structures & Algorithms",
+    "difficulty": "hard"
+  },
+  {
     "id": 6,
-    "question": "Which HTTP status code means \"Not Found\"?",
-    "options": ["301", "403", "404", "500"],
-    "correctAnswer": "404",
-    "explanation": "404 indicates the server cannot find the requested resource.",
-    "category": "Web",
+    "question": "What is the primary purpose of a DNS (Domain Name System) server?",
+    "options": [
+      "To encrypt web traffic",
+      "To map human-readable domain names to IP addresses",
+      "To store website cookies",
+      "To host website backend databases"
+    ],
+    "correctAnswer": "To map human-readable domain names to IP addresses",
+    "explanation": "DNS acts like the phonebook of the internet, translating domain names like 'example.com' into the numerical IP addresses that computers use to identify each other.",
+    "category": "Networking",
     "difficulty": "easy"
   },
   {
     "id": 7,
-    "question": "Which React hook runs side effects after render?",
-    "options": ["useMemo", "useEffect", "useCallback", "useReducer"],
-    "correctAnswer": "useEffect",
-    "explanation": "useEffect runs after the component renders, ideal for side effects like subscriptions.",
-    "category": "React",
-    "difficulty": "medium"
+    "question": "Which HTTP status code represents an unauthorized request error?",
+    "options": ["400 Bad Request", "401 Unauthorized", "403 Forbidden", "404 Not Found"],
+    "correctAnswer": "401 Unauthorized",
+    "explanation": "The HTTP 401 Unauthorized client error status response code indicates that the request has not been applied because it lacks valid authentication credentials for the target resource.",
+    "category": "Web Development",
+    "difficulty": "easy"
   },
   {
     "id": 8,
-    "question": "What does the `strict` flag in tsconfig.json enable?",
+    "question": "In cryptography, what type of key setup is used in asymmetric encryption?",
     "options": [
-      "Faster compilation",
-      "All strict type-checking options",
-      "Automatic code formatting",
-      "Tree shaking"
+      "A single private key shared by both parties",
+      "A public key to encrypt and a separate private key to decrypt",
+      "A public key to decrypt and a separate private key to encrypt",
+      "A rotating set of symmetric keys"
     ],
-    "correctAnswer": "All strict type-checking options",
-    "explanation": "strict: true turns on the whole family of strict checks (strictNullChecks, noImplicitAny, etc.).",
-    "category": "TypeScript",
+    "correctAnswer": "A public key to encrypt and a separate private key to decrypt",
+    "explanation": "Asymmetric cryptography (or public-key cryptography) uses a mathematically linked pair of keys. Anyone can encrypt a message using the public key, but only the holder of the corresponding private key can decrypt it.",
+    "category": "Cybersecurity",
     "difficulty": "medium"
   },
   {
     "id": 9,
-    "question": "Which AWS service runs code without provisioning servers?",
-    "options": ["EC2", "ECS", "Lambda", "Lightsail"],
-    "correctAnswer": "Lambda",
-    "explanation": "AWS Lambda is a serverless compute service that runs code in response to events.",
-    "category": "Cloud",
-    "difficulty": "medium"
+    "question": "What is Docker primarily used for in modern software engineering?",
+    "options": [
+      "Automating unit testing in Python",
+      "Containerizing applications to run consistently across different environments",
+      "Managing distributed cloud databases",
+      "Compiling source code into machine language"
+    ],
+    "correctAnswer": "Containerizing applications to run consistently across different environments",
+    "explanation": "Docker is an open-source platform that packages applications and their dependencies into standard units called containers, ensuring they run smoothly regardless of the underlying infrastructure.",
+    "category": "Cloud Computing",
+    "difficulty": "easy"
   },
   {
     "id": 10,
-    "question": "What does CSS stand for?",
+    "question": "Which programming paradigm heavily relies on the concepts of 'pure functions' and 'immutability'?",
     "options": [
-      "Cascading Style Sheets",
-      "Computer Style System",
-      "Creative Styling Syntax",
-      "Coded Style Structure"
+      "Object-Oriented Programming",
+      "Functional Programming",
+      "Procedural Programming",
+      "Imperative Programming"
     ],
-    "correctAnswer": "Cascading Style Sheets",
-    "category": "Web",
-    "difficulty": "easy"
+    "correctAnswer": "Functional Programming",
+    "explanation": "Functional programming is a paradigm where programs are constructed by applying and composing functions. It emphasizes immutability (data cannot be changed after creation) and pure functions (functions with no side effects).",
+    "category": "Software Engineering",
+    "difficulty": "hard"
   }
 ]
