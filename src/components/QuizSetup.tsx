@@ -1,0 +1,128 @@
+import { useState } from 'react'
+import type { QuizQuestion, QuizSettings } from '../types/quiz'
+import { getCategories } from '../utils/quiz'
+
+interface QuizSetupProps {
+  questions: QuizQuestion[]
+  onStart: (settings: QuizSettings) => void
+  onDiscard: () => void
+}
+
+/**
+ * Shown after a quiz is loaded but before it starts: pick shuffle options,
+ * an optional timer, and which categories to include.
+ */
+export function QuizSetup({ questions, onStart, onDiscard }: QuizSetupProps) {
+  const categories = getCategories(questions)
+  const [shuffleQuestions, setShuffleQuestions] = useState(false)
+  const [shuffleOptions, setShuffleOptions] = useState(false)
+  const [timerMinutes, setTimerMinutes] = useState(0)
+  const [selectedCategories, setSelectedCategories] = useState<string[]>([])
+
+  const toggleCategory = (category: string) => {
+    setSelectedCategories((prev) =>
+      prev.includes(category) ? prev.filter((c) => c !== category) : [...prev, category],
+    )
+  }
+
+  const effectiveCount = selectedCategories.length
+    ? questions.filter((q) => q.category && selectedCategories.includes(q.category)).length
+    : questions.length
+
+  return (
+    <div className="animate-fade-slide-in rounded-2xl border border-slate-200 bg-white p-6 shadow-sm sm:p-8 dark:border-slate-800 dark:bg-slate-900">
+      <div className="mb-6 flex items-start justify-between gap-3">
+        <div>
+          <h2 className="text-lg font-semibold">Quiz loaded ✅</h2>
+          <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">
+            {questions.length} questions ready. Configure your session below.
+          </p>
+        </div>
+        <button
+          type="button"
+          onClick={onDiscard}
+          className="text-sm font-medium text-slate-500 hover:text-red-600 hover:underline dark:text-slate-400"
+        >
+          Discard
+        </button>
+      </div>
+
+      <div className="space-y-5">
+        <div className="flex flex-wrap gap-x-8 gap-y-3">
+          <label className="flex cursor-pointer items-center gap-2 text-sm">
+            <input
+              type="checkbox"
+              checked={shuffleQuestions}
+              onChange={(e) => setShuffleQuestions(e.target.checked)}
+              className="size-4 accent-indigo-600"
+            />
+            Shuffle questions
+          </label>
+          <label className="flex cursor-pointer items-center gap-2 text-sm">
+            <input
+              type="checkbox"
+              checked={shuffleOptions}
+              onChange={(e) => setShuffleOptions(e.target.checked)}
+              className="size-4 accent-indigo-600"
+            />
+            Shuffle options
+          </label>
+        </div>
+
+        <div>
+          <label htmlFor="timer" className="mb-1.5 block text-sm font-medium">
+            Timer (minutes) — 0 for untimed
+          </label>
+          <input
+            id="timer"
+            type="number"
+            min={0}
+            max={480}
+            value={timerMinutes}
+            onChange={(e) => setTimerMinutes(Math.max(0, Number(e.target.value) || 0))}
+            className="w-28 rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm shadow-sm outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/30 dark:border-slate-700 dark:bg-slate-900"
+          />
+        </div>
+
+        {categories.length > 0 && (
+          <div>
+            <p className="mb-2 text-sm font-medium">
+              Categories <span className="font-normal text-slate-500">(none selected = all)</span>
+            </p>
+            <div className="flex flex-wrap gap-2">
+              {categories.map((category) => {
+                const active = selectedCategories.includes(category)
+                return (
+                  <button
+                    key={category}
+                    type="button"
+                    onClick={() => toggleCategory(category)}
+                    aria-pressed={active}
+                    className={`rounded-full border px-4 py-1.5 text-sm font-medium transition-colors ${
+                      active
+                        ? 'border-indigo-500 bg-indigo-600 text-white'
+                        : 'border-slate-300 bg-white text-slate-700 hover:border-indigo-400 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300'
+                    }`}
+                  >
+                    {category}
+                  </button>
+                )
+              })}
+            </div>
+          </div>
+        )}
+
+        <button
+          type="button"
+          onClick={() =>
+            onStart({ shuffleQuestions, shuffleOptions, timerMinutes, categories: selectedCategories })
+          }
+          disabled={effectiveCount === 0}
+          className="w-full rounded-xl bg-indigo-600 px-5 py-3 font-semibold text-white shadow-sm transition-colors hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto"
+        >
+          Start quiz ({effectiveCount} questions)
+        </button>
+      </div>
+    </div>
+  )
+}

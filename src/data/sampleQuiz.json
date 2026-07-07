@@ -1,0 +1,106 @@
+[
+  {
+    "id": 1,
+    "question": "What does AWS stand for?",
+    "options": [
+      "Amazon Web Services",
+      "Advanced Web System",
+      "Application Web Services",
+      "Automated Web Solution"
+    ],
+    "correctAnswer": "Amazon Web Services",
+    "explanation": "AWS stands for Amazon Web Services, Amazon's cloud computing platform.",
+    "category": "Cloud",
+    "difficulty": "easy"
+  },
+  {
+    "id": 2,
+    "question": "Which AWS service is used for object storage?",
+    "options": ["EC2", "S3", "RDS", "Lambda"],
+    "correctAnswer": "S3",
+    "explanation": "Amazon S3 (Simple Storage Service) provides scalable object storage.",
+    "category": "Cloud",
+    "difficulty": "easy"
+  },
+  {
+    "id": 3,
+    "question": "Which hook is used to manage state in a React function component?",
+    "options": ["useEffect", "useState", "useContext", "useRef"],
+    "correctAnswer": "useState",
+    "explanation": "useState returns a stateful value and a function to update it.",
+    "category": "React",
+    "difficulty": "easy"
+  },
+  {
+    "id": 4,
+    "question": "In TypeScript, which keyword creates a type alias?",
+    "options": ["interface", "type", "alias", "typedef"],
+    "correctAnswer": "type",
+    "explanation": "The `type` keyword defines a type alias, e.g. `type ID = string | number`.",
+    "category": "TypeScript",
+    "difficulty": "easy"
+  },
+  {
+    "id": 5,
+    "question": "What is the output of `typeof null` in JavaScript?",
+    "options": ["\"null\"", "\"undefined\"", "\"object\"", "\"boolean\""],
+    "correctAnswer": "\"object\"",
+    "explanation": "A long-standing quirk of JavaScript: typeof null returns \"object\".",
+    "category": "JavaScript",
+    "difficulty": "medium"
+  },
+  {
+    "id": 6,
+    "question": "Which HTTP status code means \"Not Found\"?",
+    "options": ["301", "403", "404", "500"],
+    "correctAnswer": "404",
+    "explanation": "404 indicates the server cannot find the requested resource.",
+    "category": "Web",
+    "difficulty": "easy"
+  },
+  {
+    "id": 7,
+    "question": "Which React hook runs side effects after render?",
+    "options": ["useMemo", "useEffect", "useCallback", "useReducer"],
+    "correctAnswer": "useEffect",
+    "explanation": "useEffect runs after the component renders, ideal for side effects like subscriptions.",
+    "category": "React",
+    "difficulty": "medium"
+  },
+  {
+    "id": 8,
+    "question": "What does the `strict` flag in tsconfig.json enable?",
+    "options": [
+      "Faster compilation",
+      "All strict type-checking options",
+      "Automatic code formatting",
+      "Tree shaking"
+    ],
+    "correctAnswer": "All strict type-checking options",
+    "explanation": "strict: true turns on the whole family of strict checks (strictNullChecks, noImplicitAny, etc.).",
+    "category": "TypeScript",
+    "difficulty": "medium"
+  },
+  {
+    "id": 9,
+    "question": "Which AWS service runs code without provisioning servers?",
+    "options": ["EC2", "ECS", "Lambda", "Lightsail"],
+    "correctAnswer": "Lambda",
+    "explanation": "AWS Lambda is a serverless compute service that runs code in response to events.",
+    "category": "Cloud",
+    "difficulty": "medium"
+  },
+  {
+    "id": 10,
+    "question": "What does CSS stand for?",
+    "options": [
+      "Cascading Style Sheets",
+      "Computer Style System",
+      "Creative Styling Syntax",
+      "Coded Style Structure"
+    ],
+    "correctAnswer": "Cascading Style Sheets",
+    "category": "Web",
+    "difficulty": "easy"
+  }
+]
