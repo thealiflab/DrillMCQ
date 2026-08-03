@@ -30,3 +30,7 @@ pnpm-debug.log*
 
 # Vercel
 .vercel
+
+CLAUDE.md
+
+.claude 
