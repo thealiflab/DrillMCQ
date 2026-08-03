@@ -1,23 +1,123 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { QuizImporter } from './components/QuizImporter'
 import { ProgressBar } from './components/ProgressBar'
 import { QuizCard } from './components/QuizCard'
+import { QuizHistory } from './components/QuizHistory'
 import { QuizSetup } from './components/QuizSetup'
+import { RecentResults } from './components/RecentResults'
 import { ResultScreen } from './components/ResultScreen'
+import { SavedQuizList } from './components/SavedQuizList'
+import { SaveQuizPanel } from './components/SaveQuizPanel'
 import { ThemeToggle } from './components/ThemeToggle'
 import { useQuiz } from './hooks/useQuiz'
+import { useQuizHistory } from './hooks/useQuizHistory'
+import { useSavedQuizzes } from './hooks/useSavedQuizzes'
 import { useTheme } from './hooks/useTheme'
 import { useTimer } from './hooks/useTimer'
-import type { QuizQuestion, QuizSession } from './types/quiz'
+import { isStorageAvailable } from './services/storage'
+import type { QuizAttempt, QuizQuestion, QuizSession, SavedQuiz } from './types/quiz'
+import { attemptToSession, formatDateTime, progressToSession } from './utils/library'
 import { formatTime } from './utils/quiz'
+
+/** How many entries the main-screen "recent results" strip shows. */
+const RECENT_RESULTS_LIMIT = 5
 
 export default function App() {
   const { theme, toggleTheme } = useTheme()
   const quiz = useQuiz()
-  // Questions loaded from JSON but not yet started (setup phase).
+  const library = useSavedQuizzes()
+  const history = useQuizHistory()
+
+  // Questions loaded from an import (or picked from the library) but not yet
+  // started — the setup phase.
   const [pendingQuestions, setPendingQuestions] = useState<QuizQuestion[] | null>(null)
+  // Set when the pending questions belong to a saved quiz, so the resulting
+  // attempt is filed against it.
+  const [pendingQuiz, setPendingQuiz] = useState<SavedQuiz | null>(null)
+  // Which saved quiz's history is open, and which attempt is being reviewed.
+  const [historyQuizId, setHistoryQuizId] = useState<string | null>(null)
+  const [reviewAttempt, setReviewAttempt] = useState<QuizAttempt | null>(null)
+  const [storageAvailable] = useState(isStorageAvailable)
 
   const { session } = quiz
+  const { saveProgress, completeProgress, refresh: refreshLibrary } = library
+  const { recordSession, refresh: refreshHistory } = history
+
+  // Mirror an in-progress run onto its saved quiz so the library can show it
+  // as "In progress" and resume it later.
+  useEffect(() => {
+    if (session && session.status === 'active' && session.quizId) saveProgress(session)
+  }, [session, saveProgress])
+
+  // Convert a submitted session into a permanent result, exactly once per
+  // attempt (the ref guards re-renders; storage guards reloads).
+  const recordedRef = useRef<Set<string>>(new Set())
+  useEffect(() => {
+    if (!session || session.status !== 'finished') return
+    if (recordedRef.current.has(session.attemptId)) return
+    recordedRef.current.add(session.attemptId)
+    const attempt = recordSession(session)
+    if (session.quizId) completeProgress(session.quizId, attempt.id)
+  }, [session, recordSession, completeProgress])
+
+  /** Send a question bank to the setup screen, optionally tied to a saved quiz. */
+  const openSetup = useCallback((questions: QuizQuestion[], saved: SavedQuiz | null) => {
+    setPendingQuestions(questions)
+    setPendingQuiz(saved)
+    setHistoryQuizId(null)
+    setReviewAttempt(null)
+  }, [])
+
+  const clearSetup = useCallback(() => {
+    setPendingQuestions(null)
+    setPendingQuiz(null)
+  }, [])
+
+  const handleResume = useCallback(
+    (saved: SavedQuiz) => {
+      if (!saved.progress) return
+      setHistoryQuizId(null)
+      setReviewAttempt(null)
+      quiz.resumeSession(progressToSession(saved, saved.progress))
+    },
+    [quiz],
+  )
+
+  const handleDeleteQuiz = useCallback(
+    (saved: SavedQuiz) => {
+      library.removeQuiz(saved.id)
+      // Storage drops the quiz's attempts with it — resync the history state.
+      refreshHistory()
+      if (historyQuizId === saved.id) setHistoryQuizId(null)
+      if (reviewAttempt?.quizId === saved.id) setReviewAttempt(null)
+      if (session?.quizId === saved.id) quiz.resetQuiz()
+      if (pendingQuiz?.id === saved.id) clearSetup()
+    },
+    [library, refreshHistory, historyQuizId, reviewAttempt, session, quiz, pendingQuiz, clearSetup],
+  )
+
+  const handleDeleteAttempt = useCallback(
+    (attempt: QuizAttempt) => {
+      history.removeAttempt(attempt.id)
+      if (reviewAttempt?.id === attempt.id) setReviewAttempt(null)
+      // The quiz may have pointed at this attempt as its latest.
+      refreshLibrary()
+    },
+    [history, reviewAttempt, refreshLibrary],
+  )
+
+  /** Leave the finished-result screen for the quiz's history view. */
+  const openHistoryFor = useCallback(
+    (quizId: string) => {
+      quiz.resetQuiz()
+      clearSetup()
+      setReviewAttempt(null)
+      setHistoryQuizId(quizId)
+    },
+    [quiz, clearSetup],
+  )
+
+  const historyQuiz = historyQuizId ? library.quizzes.find((q) => q.id === historyQuizId) ?? null : null
 
   return (
     <div className="min-h-screen">
@@ -34,32 +134,113 @@ export default function App() {
       </header>
 
       <main className="mx-auto max-w-3xl px-4 pb-16">
-        {session === null && pendingQuestions === null && (
-          <div className="animate-fade-slide-in rounded-2xl border border-slate-200 bg-white p-6 shadow-sm sm:p-8 dark:border-slate-800 dark:bg-slate-900">
-            <QuizImporter onLoad={setPendingQuestions} />
-          </div>
-        )}
-
-        {session === null && pendingQuestions !== null && (
-          <QuizSetup
-            questions={pendingQuestions}
-            onStart={(settings) => {
-              quiz.startQuiz(pendingQuestions, settings)
-              setPendingQuestions(null)
-            }}
-            onDiscard={() => setPendingQuestions(null)}
+        {/* 1. Reviewing a stored attempt — reuses the live result screen. */}
+        {reviewAttempt !== null && (
+          <ResultScreen
+            session={attemptToSession(reviewAttempt)}
+            onNewQuiz={() => setReviewAttempt(null)}
+            newQuizLabel={historyQuizId !== null ? 'Back to history' : 'Back to My Quizzes'}
+            subtitle={`${reviewAttempt.quizName} · ${formatDateTime(reviewAttempt.completedAt)}`}
           />
         )}
 
-        {session !== null && session.status === 'active' && (
+        {/* 2. A saved quiz's results history. */}
+        {reviewAttempt === null && historyQuiz !== null && (
+          <QuizHistory
+            quiz={historyQuiz}
+            attempts={history.forQuiz(historyQuiz.id)}
+            onBack={() => setHistoryQuizId(null)}
+            onRetake={() => openSetup(historyQuiz.questions, historyQuiz)}
+            onReview={setReviewAttempt}
+            onDeleteAttempt={handleDeleteAttempt}
+          />
+        )}
+
+        {/* 3. An in-progress quiz. */}
+        {reviewAttempt === null && historyQuiz === null && session?.status === 'active' && (
           <ActiveQuiz session={session} quiz={quiz} />
         )}
 
-        {session !== null && session.status === 'finished' && (
-          <ResultScreen session={session} onRetry={quiz.retryQuiz} onNewQuiz={quiz.resetQuiz} />
+        {/* 4. The result of the run just submitted. */}
+        {reviewAttempt === null && historyQuiz === null && session?.status === 'finished' && (
+          <FinishedQuiz
+            session={session}
+            onRetry={quiz.retryQuiz}
+            onNewQuiz={quiz.resetQuiz}
+            onViewHistory={openHistoryFor}
+          />
+        )}
+
+        {/* 5. Setup for a freshly imported or freshly picked quiz. */}
+        {reviewAttempt === null && historyQuiz === null && session === null && pendingQuestions !== null && (
+          <div className="space-y-4">
+            <SaveQuizPanel
+              questionCount={pendingQuestions.length}
+              duplicate={pendingQuiz ?? library.findSavedDuplicate(pendingQuestions)}
+              savedName={pendingQuiz?.name ?? null}
+              storageAvailable={storageAvailable}
+              onSave={(name) => setPendingQuiz(library.saveQuiz(name, pendingQuestions))}
+              onUpdate={(quizId) => setPendingQuiz(library.updateQuiz(quizId, pendingQuestions))}
+            />
+            <QuizSetup
+              questions={pendingQuestions}
+              onStart={(settings) => {
+                quiz.startQuiz(pendingQuestions, settings, {
+                  quizId: pendingQuiz?.id,
+                  quizName: pendingQuiz?.name,
+                })
+                clearSetup()
+              }}
+              onDiscard={clearSetup}
+            />
+          </div>
+        )}
+
+        {/* 6. Home: import, library, recent results. */}
+        {reviewAttempt === null && historyQuiz === null && session === null && pendingQuestions === null && (
+          <div className="space-y-8">
+            <div className="animate-fade-slide-in rounded-2xl border border-slate-200 bg-white p-6 shadow-sm sm:p-8 dark:border-slate-800 dark:bg-slate-900">
+              <QuizImporter onLoad={(questions) => openSetup(questions, null)} />
+            </div>
+
+            <SavedQuizList
+              quizzes={library.quizzes}
+              statsFor={history.statsFor}
+              onStart={(saved) => openSetup(saved.questions, saved)}
+              onResume={handleResume}
+              onViewResults={(saved) => setHistoryQuizId(saved.id)}
+              onDelete={handleDeleteQuiz}
+            />
+
+            <RecentResults
+              attempts={history.recent(RECENT_RESULTS_LIMIT)}
+              onReview={setReviewAttempt}
+              onDelete={handleDeleteAttempt}
+            />
+          </div>
         )}
       </main>
     </div>
+  )
+}
+
+interface FinishedQuizProps {
+  session: QuizSession
+  onRetry: () => void
+  onNewQuiz: () => void
+  onViewHistory: (quizId: string) => void
+}
+
+/** Result of the run just submitted, with a jump into its history if saved. */
+function FinishedQuiz({ session, onRetry, onNewQuiz, onViewHistory }: FinishedQuizProps) {
+  const quizId = session.quizId
+  return (
+    <ResultScreen
+      session={session}
+      onRetry={onRetry}
+      onNewQuiz={onNewQuiz}
+      onViewHistory={quizId === undefined ? undefined : () => onViewHistory(quizId)}
+    />
   )
 }
 
@@ -116,6 +297,10 @@ function ActiveQuiz({ session, quiz }: ActiveQuizProps) {
 
   return (
     <div className="space-y-5">
+      {session.quizName !== undefined && (
+        <p className="text-sm font-medium text-slate-500 dark:text-slate-400">{session.quizName}</p>
+      )}
+
       <div className="flex items-center gap-4">
         <div className="flex-1">
           <ProgressBar current={currentIndex + 1} total={questions.length} answered={answeredCount} />
@@ -163,6 +348,11 @@ function ActiveQuiz({ session, quiz }: ActiveQuizProps) {
         <button
           type="button"
           onClick={quiz.resetQuiz}
+          title={
+            session.quizId
+              ? 'Your progress is kept — resume from My Quizzes'
+              : 'This attempt will be discarded'
+          }
           className="text-sm font-medium text-slate-500 hover:text-red-600 hover:underline dark:text-slate-400"
         >
           Quit

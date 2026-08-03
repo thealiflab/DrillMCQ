@@ -5,8 +5,15 @@ import { ExplanationPanel } from './ExplanationPanel'
 
 interface ResultScreenProps {
   session: QuizSession
-  onRetry: () => void
+  /** Omitted when reviewing a stored attempt, where there's nothing to retry. */
+  onRetry?: () => void
   onNewQuiz: () => void
+  /** Label for the secondary action — "Back to history" in review mode. */
+  newQuizLabel?: string
+  /** Shown when the attempt belongs to a saved quiz. */
+  onViewHistory?: () => void
+  /** Optional context line, e.g. the quiz name and attempt date. */
+  subtitle?: string
 }
 
 /** Triggers a download of the loaded quiz as a JSON file. */
@@ -23,7 +30,14 @@ function exportQuiz(session: QuizSession) {
 }
 
 /** Score summary plus a per-question answer review. */
-export function ResultScreen({ session, onRetry, onNewQuiz }: ResultScreenProps) {
+export function ResultScreen({
+  session,
+  onRetry,
+  onNewQuiz,
+  newQuizLabel = 'New quiz',
+  onViewHistory,
+  subtitle,
+}: ResultScreenProps) {
   const result = useMemo(() => computeResult(session), [session])
   const [incorrectOnly, setIncorrectOnly] = useState(false)
   const [search, setSearch] = useState('')
@@ -45,6 +59,9 @@ export function ResultScreen({ session, onRetry, onNewQuiz }: ResultScreenProps)
     <div className="animate-fade-slide-in space-y-6">
       {/* Score summary card */}
       <div className="rounded-2xl border border-slate-200 bg-white p-6 text-center shadow-sm sm:p-8 dark:border-slate-800 dark:bg-slate-900">
+        {subtitle !== undefined && (
+          <p className="mb-1 text-sm text-slate-500 dark:text-slate-400">{subtitle}</p>
+        )}
         <p className="text-lg font-medium text-slate-600 dark:text-slate-400">{grade}</p>
         <p className="my-2 text-5xl font-bold text-indigo-600 dark:text-indigo-400">
           {result.percentage}%
@@ -69,20 +86,31 @@ export function ResultScreen({ session, onRetry, onNewQuiz }: ResultScreenProps)
         </dl>
 
         <div className="mt-6 flex flex-wrap justify-center gap-3">
-          <button
-            type="button"
-            onClick={onRetry}
-            className="rounded-xl bg-indigo-600 px-5 py-2.5 font-medium text-white shadow-sm transition-colors hover:bg-indigo-700"
-          >
-            Retry quiz
-          </button>
+          {onRetry !== undefined && (
+            <button
+              type="button"
+              onClick={onRetry}
+              className="rounded-xl bg-indigo-600 px-5 py-2.5 font-medium text-white shadow-sm transition-colors hover:bg-indigo-700"
+            >
+              Retry quiz
+            </button>
+          )}
           <button
             type="button"
             onClick={onNewQuiz}
             className="rounded-xl border border-slate-300 bg-white px-5 py-2.5 font-medium shadow-sm transition-colors hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:hover:bg-slate-800"
           >
-            New quiz
+            {newQuizLabel}
           </button>
+          {onViewHistory !== undefined && (
+            <button
+              type="button"
+              onClick={onViewHistory}
+              className="rounded-xl border border-slate-300 bg-white px-5 py-2.5 font-medium shadow-sm transition-colors hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:hover:bg-slate-800"
+            >
+              Results history
+            </button>
+          )}
           <button
             type="button"
             onClick={() => exportQuiz(session)}

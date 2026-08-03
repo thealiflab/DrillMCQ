@@ -1,7 +1,13 @@
 import { useCallback, useEffect, useState } from 'react'
 import type { QuizQuestion, QuizSession, QuizSettings } from '../types/quiz'
-import { clearSession, loadSession, saveSession } from '../services/storage'
-import { shuffle } from '../utils/quiz'
+import { clearSession, createId, loadSession, saveSession } from '../services/storage'
+import { buildSession } from '../utils/library'
+
+interface StartOptions {
+  /** Set when the run comes from a saved quiz, so the attempt can be filed. */
+  quizId?: string
+  quizName?: string
+}
 
 /**
  * Central quiz state machine.
@@ -21,24 +27,16 @@ export function useQuiz() {
   }, [session])
 
   /** Build a fresh session from a question bank + user settings. */
-  const startQuiz = useCallback((bank: QuizQuestion[], settings: QuizSettings) => {
-    let questions = settings.categories.length
-      ? bank.filter((q) => q.category && settings.categories.includes(q.category))
-      : [...bank]
+  const startQuiz = useCallback(
+    (bank: QuizQuestion[], settings: QuizSettings, options: StartOptions = {}) => {
+      setSession(buildSession(bank, settings, options))
+    },
+    [],
+  )
 
-    if (settings.shuffleQuestions) questions = shuffle(questions)
-    if (settings.shuffleOptions) {
-      questions = questions.map((q) => ({ ...q, options: shuffle(q.options) }))
-    }
-
-    setSession({
-      questions,
-      answers: {},
-      currentIndex: 0,
-      status: 'active',
-      startedAt: Date.now(),
-      timerMinutes: settings.timerMinutes,
-    })
+  /** Pick up a previously stored run (a saved quiz's progress snapshot). */
+  const resumeSession = useCallback((restored: QuizSession) => {
+    setSession(restored)
   }, [])
 
   const selectAnswer = useCallback((questionId: number, option: string) => {
@@ -74,10 +72,15 @@ export function useQuiz() {
   }, [])
 
   const finishQuiz = useCallback(() => {
-    setSession((s) => (s ? { ...s, status: 'finished' } : s))
+    setSession((s) =>
+      s && s.status === 'active' ? { ...s, status: 'finished', finishedAt: Date.now() } : s,
+    )
   }, [])
 
-  /** Restart the same questions with cleared answers and a fresh timer. */
+  /**
+   * Restart the same questions with cleared answers and a fresh timer. A new
+   * attempt id makes this a separate entry in the results history.
+   */
   const retryQuiz = useCallback(() => {
     setSession((s) =>
       s
@@ -87,6 +90,8 @@ export function useQuiz() {
             currentIndex: 0,
             status: 'active',
             startedAt: Date.now(),
+            finishedAt: undefined,
+            attemptId: createId('attempt'),
           }
         : s,
     )
@@ -100,6 +105,7 @@ export function useQuiz() {
   return {
     session,
     startQuiz,
+    resumeSession,
     selectAnswer,
     goTo,
     next,

@@ -31,7 +31,91 @@ export interface QuizSession {
   startedAt: number
   /** Total time in minutes. 0 = untimed. */
   timerMinutes: number
+  /**
+   * Identifies this run so a finished session is only ever recorded once in
+   * the history, no matter how many times the finish effect re-runs.
+   */
+  attemptId: string
+  /** Settings this run was configured with (kept so an attempt can record them). */
+  settings: QuizSettings
+  /** Set when the run came from a saved quiz in the library. */
+  quizId?: string
+  /** Denormalised saved-quiz name, so results read well even after a rename. */
+  quizName?: string
+  /** Epoch ms when the quiz was submitted. Only set once finished. */
+  finishedAt?: number
 }
+
+/**
+ * Snapshot of an unfinished run stored on the saved quiz, so the library can
+ * show "In progress" and resume it. Mirrors the active session — the session
+ * stays the live copy, this is just what resume rehydrates from.
+ */
+export interface SavedQuizProgress {
+  attemptId: string
+  questions: QuizQuestion[]
+  answers: Record<number, string>
+  currentIndex: number
+  startedAt: number
+  timerMinutes: number
+  settings: QuizSettings
+  /** Epoch ms of the last change, for "last active" display. */
+  updatedAt: number
+}
+
+/** A quiz stored in the user's local library. */
+export interface SavedQuiz {
+  id: string
+  name: string
+  questions: QuizQuestion[]
+  createdAt: number
+  updatedAt: number
+  /** Reference to the most recently completed attempt, if any. */
+  lastAttemptId?: string
+  /** Present only while an attempt is unfinished. */
+  progress?: SavedQuizProgress
+  /**
+   * Hash of the question content, used to spot a re-import of a quiz that is
+   * already in the library so it can be updated instead of duplicated.
+   */
+  fingerprint: string
+}
+
+/** A completed attempt, kept forever in the local history. */
+export interface QuizAttempt {
+  id: string
+  quizId?: string
+  quizName: string
+  /** Epoch ms when the attempt started / was submitted. */
+  startedAt: number
+  completedAt: number
+  /** Seconds spent on the attempt. */
+  timeTakenSeconds: number
+  correct: number
+  incorrect: number
+  unanswered: number
+  total: number
+  percentage: number
+  /** Settings the attempt was run with. */
+  settings: QuizSettings
+  /** Questions in the order they were played, so review is reproducible. */
+  questions: QuizQuestion[]
+  /** Map of question id -> selected option. */
+  answers: Record<number, string>
+}
+
+/** Aggregate stats across a quiz's attempts. */
+export interface HistoryStats {
+  attempts: number
+  /** Percentage of the newest attempt, or null when there are none. */
+  latest: number | null
+  best: number | null
+  /** Mean percentage, rounded. */
+  average: number | null
+}
+
+/** How a saved quiz is currently doing, derived from its progress + history. */
+export type AttemptStatus = 'not-started' | 'in-progress' | 'completed'
 
 /** Computed outcome of a finished session. */
 export interface QuizResult {

@@ -10,6 +10,9 @@ A modern, fully client-side quiz platform built with **React**, **TypeScript**, 
 - **Keyboard navigation** — `←`/`→` to move between questions, `1–8` or `A–H` to select answers
 - **Results & review** — score, percentage, per-question review with correct/incorrect indicators
 - **Explanations** — optional expandable explanation per question
+- **Quiz library** — save imported quizzes to a local **My Quizzes** section on the main screen, with question count, categories, last score, and attempt status (not started / in progress / completed)
+- **Resume** — leave or refresh mid-quiz and pick up from the library exactly where you left off, with answers, position, timer, and settings intact
+- **Results history** — every completed attempt is kept locally per quiz, with latest / best / average scores and a full review of any past attempt
 - **Session persistence** — progress, answers, and timer survive a page refresh (localStorage)
 - **Timer mode** — optional countdown that auto-submits when time runs out
 - **Shuffle** — optionally shuffle questions and/or options
@@ -73,6 +76,16 @@ npm run preview
 ```bash
 npm run lint
 ```
+
+### Test
+
+```bash
+npm test          # run once
+npm run test:watch
+```
+
+Tests cover the storage layer (saving, loading, updating and deleting quizzes and
+results, corrupted data, migration) and the pure library/history logic.
 
 ## Plain Text Format
 
@@ -193,17 +206,26 @@ src/
  │    ├── ThemeToggle.tsx      # Dark/light mode switch
  │    ├── QuizImporter.tsx     # Tabbed import (plain text / JSON)
  │    ├── TextUploader.tsx     # Plain-text MCQ import with live preview
- │    └── JsonUploader.tsx     # Paste JSON import
+ │    ├── JsonUploader.tsx     # Paste JSON import
+ │    ├── SaveQuizPanel.tsx    # Name + save an import to the library
+ │    ├── SavedQuizList.tsx    # "My Quizzes" section + delete flow
+ │    ├── SavedQuizCard.tsx    # One saved quiz: status, score, actions
+ │    ├── QuizHistory.tsx      # Per-quiz results history
+ │    ├── RecentResults.tsx    # Recent attempts across all quizzes
+ │    └── ConfirmDialog.tsx    # Accessible confirmation modal
  ├── hooks/
  │    ├── useQuiz.ts           # Quiz state machine + persistence
+ │    ├── useSavedQuizzes.ts   # Saved quiz library state
+ │    ├── useQuizHistory.ts    # Completed attempts state
  │    ├── useTheme.ts          # Theme state
  │    └── useTimer.ts          # Refresh-safe countdown
  ├── services/
- │    └── storage.ts           # localStorage wrapper
+ │    └── storage.ts           # localStorage wrapper + migration
  ├── types/
  │    └── quiz.ts              # Shared TypeScript types
  ├── utils/
  │    ├── quiz.ts              # Validation, shuffling, scoring
+ │    ├── library.ts           # Session <-> progress <-> attempt transforms
  │    └── parseMcqText.ts      # Plain-text MCQ parser
  ├── data/
  │    └── sampleQuiz.json      # Sample quiz dataset
