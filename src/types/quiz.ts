@@ -1,9 +1,14 @@
-/** A single multiple-choice question. */
+/** A multiple-choice question. Two or more correct answers = multi-select. */
 export interface QuizQuestion {
   id: number
   question: string
   options: string[]
-  correctAnswer: string
+  /**
+   * Every option that counts as correct, always at least one. A length above
+   * one is what puts the question into multi-select mode — there is no
+   * separate "type" flag to keep in sync.
+   */
+  correctAnswers: string[]
   explanation?: string
   category?: string
   difficulty?: string
@@ -23,8 +28,17 @@ export interface QuizSettings {
 export interface QuizSession {
   /** Questions in play order (already filtered/shuffled). */
   questions: QuizQuestion[]
-  /** Map of question id -> selected option. */
-  answers: Record<number, string>
+  /**
+   * Map of question id -> selected options. A single-answer question stores a
+   * one-element array. A key being present means the question is answered.
+   */
+  answers: Record<number, string[]>
+  /**
+   * Options ticked on a multi-select question but not yet submitted with
+   * "Check answer". Kept apart from `answers` so "answered" stays a simple key
+   * check, and so the lock state (answered = locked) needs no extra field.
+   */
+  drafts: Record<number, string[]>
   currentIndex: number
   status: 'active' | 'finished'
   /** Epoch ms when the quiz started (used to restore the timer). */
@@ -54,7 +68,8 @@ export interface QuizSession {
 export interface SavedQuizProgress {
   attemptId: string
   questions: QuizQuestion[]
-  answers: Record<number, string>
+  answers: Record<number, string[]>
+  drafts: Record<number, string[]>
   currentIndex: number
   startedAt: number
   timerMinutes: number
@@ -100,8 +115,8 @@ export interface QuizAttempt {
   settings: QuizSettings
   /** Questions in the order they were played, so review is reproducible. */
   questions: QuizQuestion[]
-  /** Map of question id -> selected option. */
-  answers: Record<number, string>
+  /** Map of question id -> selected options. Unsubmitted drafts are dropped. */
+  answers: Record<number, string[]>
 }
 
 /** Aggregate stats across a quiz's attempts. */

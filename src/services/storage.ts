@@ -6,6 +6,7 @@ import type {
   SavedQuiz,
   SavedQuizProgress,
 } from '../types/quiz'
+import { normalizeQuestion } from '../utils/quiz'
 
 /**
  * Thin wrapper around localStorage so persistence logic lives in one place
@@ -26,7 +27,7 @@ const THEME_KEY = 'drillmcq.theme.v1'
 const LEGACY_SESSION_KEY = 'drillmcq.session.v1'
 
 /** Bump when a stored shape changes, and add a step to `migrate` below. */
-export const SCHEMA_VERSION = 1
+export const SCHEMA_VERSION = 2
 
 // ---------------------------------------------------------------------------
 // Low-level primitives
@@ -114,23 +115,47 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value)
 }
 
-function isQuestion(value: unknown): value is QuizQuestion {
+/** Accepts both the current `correctAnswers` array and the legacy string. */
+function isQuestion(value: unknown): boolean {
   if (!isRecord(value)) return false
+  const hasAnswer =
+    typeof value.correctAnswer === 'string' ||
+    (Array.isArray(value.correctAnswers) &&
+      value.correctAnswers.length > 0 &&
+      value.correctAnswers.every((a) => typeof a === 'string'))
   return (
     typeof value.id === 'number' &&
     typeof value.question === 'string' &&
     Array.isArray(value.options) &&
     value.options.every((o) => typeof o === 'string') &&
-    typeof value.correctAnswer === 'string'
+    hasAnswer
   )
 }
 
-function isQuestionList(value: unknown): value is QuizQuestion[] {
+function isQuestionList(value: unknown): boolean {
   return Array.isArray(value) && value.length > 0 && value.every(isQuestion)
 }
 
-function isAnswerMap(value: unknown): value is Record<number, string> {
-  return isRecord(value) && Object.values(value).every((v) => typeof v === 'string')
+/** Validated question list, upgraded to `correctAnswers` on the way through. */
+function normalizeQuestionList(value: unknown): QuizQuestion[] {
+  return (value as QuizQuestion[]).map(normalizeQuestion)
+}
+
+/**
+ * Question id -> selected options. Sessions written before multiple correct
+ * answers stored a bare string per question, so widen those to a single-item
+ * array rather than discarding the user's progress.
+ */
+function normalizeAnswerMap(value: unknown): Record<number, string[]> {
+  if (!isRecord(value)) return {}
+  const out: Record<number, string[]> = {}
+  for (const [key, raw] of Object.entries(value)) {
+    const id = Number(key)
+    if (!Number.isFinite(id)) continue
+    if (typeof raw === 'string') out[id] = [raw]
+    else if (Array.isArray(raw) && raw.every((v) => typeof v === 'string')) out[id] = raw
+  }
+  return out
 }
 
 /** Settings are cosmetic on load — fill in defaults rather than reject. */
@@ -155,8 +180,8 @@ function normalizeSession(value: unknown): QuizSession | null {
   if (!isRecord(value)) return null
   if (!isQuestionList(value.questions)) return null
 
-  const questions = value.questions
-  const answers = isAnswerMap(value.answers) ? value.answers : {}
+  const questions = normalizeQuestionList(value.questions)
+  const answers = normalizeAnswerMap(value.answers)
   const timerMinutes =
     typeof value.timerMinutes === 'number' && value.timerMinutes > 0 ? value.timerMinutes : 0
   const settings = normalizeSettings(value.settings)
@@ -164,6 +189,7 @@ function normalizeSession(value: unknown): QuizSession | null {
   return {
     questions,
     answers,
+    drafts: normalizeAnswerMap(value.drafts),
     currentIndex:
       typeof value.currentIndex === 'number' && value.currentIndex >= 0
         ? Math.min(value.currentIndex, questions.length - 1)
@@ -184,11 +210,12 @@ function normalizeSession(value: unknown): QuizSession | null {
 function normalizeProgress(value: unknown): SavedQuizProgress | null {
   if (!isRecord(value)) return null
   if (!isQuestionList(value.questions)) return null
-  const questions = value.questions
+  const questions = normalizeQuestionList(value.questions)
   return {
     attemptId: typeof value.attemptId === 'string' ? value.attemptId : createId('attempt'),
     questions,
-    answers: isAnswerMap(value.answers) ? value.answers : {},
+    answers: normalizeAnswerMap(value.answers),
+    drafts: normalizeAnswerMap(value.drafts),
     currentIndex:
       typeof value.currentIndex === 'number' && value.currentIndex >= 0
         ? Math.min(value.currentIndex, questions.length - 1)
@@ -206,10 +233,11 @@ function normalizeSavedQuiz(value: unknown): SavedQuiz | null {
   if (!isQuestionList(value.questions)) return null
 
   const createdAt = typeof value.createdAt === 'number' ? value.createdAt : Date.now()
+  const questions = normalizeQuestionList(value.questions)
   return {
     id: value.id,
     name: typeof value.name === 'string' && value.name.trim() !== '' ? value.name : 'Untitled quiz',
-    questions: value.questions,
+    questions,
     createdAt,
     updatedAt: typeof value.updatedAt === 'number' ? value.updatedAt : createdAt,
     lastAttemptId: typeof value.lastAttemptId === 'string' ? value.lastAttemptId : undefined,
@@ -217,7 +245,7 @@ function normalizeSavedQuiz(value: unknown): SavedQuiz | null {
     fingerprint:
       typeof value.fingerprint === 'string' && value.fingerprint !== ''
         ? value.fingerprint
-        : fingerprintQuestions(value.questions),
+        : fingerprintQuestions(questions),
   }
 }
 
@@ -226,7 +254,8 @@ function normalizeAttempt(value: unknown): QuizAttempt | null {
   if (typeof value.id !== 'string' || value.id === '') return null
   if (!isQuestionList(value.questions)) return null
 
-  const total = typeof value.total === 'number' ? value.total : value.questions.length
+  const questions = normalizeQuestionList(value.questions)
+  const total = typeof value.total === 'number' ? value.total : questions.length
   const correct = typeof value.correct === 'number' ? value.correct : 0
   const completedAt = typeof value.completedAt === 'number' ? value.completedAt : Date.now()
   return {
@@ -247,8 +276,8 @@ function normalizeAttempt(value: unknown): QuizAttempt | null {
           ? 0
           : Math.round((correct / total) * 100),
     settings: normalizeSettings(value.settings),
-    questions: value.questions,
-    answers: isAnswerMap(value.answers) ? value.answers : {},
+    questions,
+    answers: normalizeAnswerMap(value.answers),
   }
 }
 
@@ -322,6 +351,20 @@ export function migrate(): void {
   if (storedVersion < 1 && readRaw(SESSION_KEY) === null) {
     const legacy = readJson(LEGACY_SESSION_KEY, normalizeSession)
     if (legacy) writeJson(SESSION_KEY, legacy)
+  }
+
+  // v1 -> v2: questions gained `correctAnswers: string[]` in place of
+  // `correctAnswer: string`, and answers became arrays. The normalizers read
+  // both shapes, so upgrading is a read-and-write-back through them — the keys
+  // themselves stay put, which is what keeps existing libraries and history
+  // intact instead of orphaning them behind a new suffix.
+  if (storedVersion < 2) {
+    const session = readJson(SESSION_KEY, normalizeSession)
+    if (session) writeJson(SESSION_KEY, session)
+    const quizzes = readJson(SAVED_QUIZZES_KEY, (v) => normalizeList(v, normalizeSavedQuiz))
+    if (quizzes) writeJson(SAVED_QUIZZES_KEY, quizzes)
+    const attempts = readJson(RESULTS_KEY, (v) => normalizeList(v, normalizeAttempt))
+    if (attempts) writeJson(RESULTS_KEY, attempts)
   }
 
   writeRaw(SCHEMA_VERSION_KEY, String(SCHEMA_VERSION))

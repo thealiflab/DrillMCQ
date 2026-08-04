@@ -24,9 +24,9 @@ import {
 } from './library'
 
 const questions: QuizQuestion[] = [
-  { id: 1, question: 'Capital of France?', options: ['Paris', 'Rome'], correctAnswer: 'Paris' },
-  { id: 2, question: '2 + 2?', options: ['3', '4'], correctAnswer: '4', category: 'Maths' },
-  { id: 3, question: 'Largest ocean?', options: ['Pacific', 'Indian'], correctAnswer: 'Pacific', category: 'Geo' },
+  { id: 1, question: 'Capital of France?', options: ['Paris', 'Rome'], correctAnswers: ['Paris'] },
+  { id: 2, question: '2 + 2?', options: ['3', '4'], correctAnswers: ['4'], category: 'Maths' },
+  { id: 3, question: 'Largest ocean?', options: ['Pacific', 'Indian'], correctAnswers: ['Pacific'], category: 'Geo' },
 ]
 
 const settings: QuizSettings = {
@@ -100,7 +100,12 @@ describe('resuming an unfinished quiz', () => {
     const quiz = createSavedQuiz('Geography', questions)
     const timed: QuizSettings = { ...settings, timerMinutes: 20, shuffleOptions: true }
     const started = buildSession(questions, timed, { quizId: quiz.id, quizName: quiz.name })
-    const inProgress = { ...started, answers: { 1: 'Paris' }, currentIndex: 2 }
+    const inProgress = {
+      ...started,
+      answers: { 1: ['Paris'] },
+      drafts: { 3: ['Pacific'] },
+      currentIndex: 2,
+    }
 
     const progress = sessionToProgress(inProgress)
     upsertSavedQuiz({ ...quiz, progress })
@@ -110,7 +115,9 @@ describe('resuming an unfinished quiz', () => {
     expect(attemptStatus(stored, 0)).toBe('in-progress')
 
     const resumed = progressToSession(stored, stored.progress!)
-    expect(resumed.answers).toEqual({ 1: 'Paris' })
+    expect(resumed.answers).toEqual({ 1: ['Paris'] })
+    // An unsubmitted multi-select selection survives the round trip too.
+    expect(resumed.drafts).toEqual({ 3: ['Pacific'] })
     expect(resumed.currentIndex).toBe(2)
     expect(resumed.startedAt).toBe(started.startedAt)
     expect(resumed.timerMinutes).toBe(20)
@@ -128,7 +135,9 @@ describe('completing an attempt', () => {
         quizId: 'quiz_1',
         quizName: 'Geography',
       }),
-      answers: { 1: 'Paris', 2: '3' },
+      answers: { 1: ['Paris'], 2: ['3'] },
+      // A draft that was never checked must not leak into the attempt.
+      drafts: { 3: ['Indian'] },
       startedAt: 1_000_000,
     }
 
@@ -144,8 +153,9 @@ describe('completing an attempt', () => {
     expect(attempt.percentage).toBe(33)
     expect(attempt.timeTakenSeconds).toBe(90)
     expect(attempt.settings.timerMinutes).toBe(5)
-    expect(attempt.answers).toEqual({ 1: 'Paris', 2: '3' })
+    expect(attempt.answers).toEqual({ 1: ['Paris'], 2: ['3'] })
     expect(attempt.questions).toHaveLength(3)
+    expect(attempt).not.toHaveProperty('drafts')
   })
 
   it('labels an attempt at an unsaved quiz', () => {
@@ -156,7 +166,7 @@ describe('completing an attempt', () => {
     const quiz = createSavedQuiz('Geography', questions)
     upsertSavedQuiz(quiz)
 
-    const runs: Record<number, string>[] = [{ 1: 'Paris' }, { 1: 'Paris', 2: '4' }]
+    const runs: Record<number, string[]>[] = [{ 1: ['Paris'] }, { 1: ['Paris'], 2: ['4'] }]
     for (const answers of runs) {
       const finished = { ...buildSession(questions, settings, { quizId: quiz.id, quizName: quiz.name }), answers }
       const attempt = sessionToAttempt(finished)

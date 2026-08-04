@@ -17,7 +17,7 @@ import { useTimer } from './hooks/useTimer'
 import { isStorageAvailable } from './services/storage'
 import type { QuizAttempt, QuizQuestion, QuizSession, SavedQuiz } from './types/quiz'
 import { attemptToSession, formatDateTime, progressToSession } from './utils/library'
-import { formatTime } from './utils/quiz'
+import { formatTime, isMultiAnswer } from './utils/quiz'
 
 /** How many entries the main-screen "recent results" strip shows. */
 const RECENT_RESULTS_LIMIT = 5
@@ -251,11 +251,14 @@ interface ActiveQuizProps {
 
 /** The in-progress quiz view: timer, progress, current question, navigation. */
 function ActiveQuiz({ session, quiz }: ActiveQuizProps) {
-  const { questions, currentIndex, answers } = session
+  const { questions, currentIndex, answers, drafts } = session
   const question = questions[currentIndex]
   const isLast = currentIndex === questions.length - 1
   const answeredCount = Object.keys(answers).length
   const [confirmFinish, setConfirmFinish] = useState(false)
+
+  const multi = isMultiAnswer(question)
+  const locked = multi && answers[question.id] !== undefined
 
   const remaining = useTimer(session.startedAt, session.timerMinutes, true, quiz.finishQuiz)
 
@@ -268,7 +271,10 @@ function ActiveQuiz({ session, quiz }: ActiveQuizProps) {
 
       if (event.key === 'ArrowRight') quiz.next()
       else if (event.key === 'ArrowLeft') quiz.previous()
-      else {
+      else if (event.key === 'Enter') {
+        // Enter submits a multi-answer question, mirroring "Check answer".
+        if (multi && !locked) quiz.commitAnswer(question.id)
+      } else {
         // Number keys 1-8
         const num = Number(event.key)
         let optionIndex = Number.isInteger(num) && num >= 1 ? num - 1 : -1
@@ -277,13 +283,17 @@ function ActiveQuiz({ session, quiz }: ActiveQuizProps) {
           optionIndex = event.key.toLowerCase().charCodeAt(0) - 97
         }
         if (optionIndex >= 0 && optionIndex < question.options.length) {
-          quiz.selectAnswer(question.id, question.options[optionIndex])
+          const option = question.options[optionIndex]
+          // On a multi-answer question the key toggles the draft instead of
+          // answering outright; once checked it does nothing.
+          if (multi) quiz.toggleDraft(question.id, option)
+          else quiz.selectAnswer(question.id, option)
         }
       }
     }
     window.addEventListener('keydown', handler)
     return () => window.removeEventListener('keydown', handler)
-  }, [quiz, question])
+  }, [quiz, question, multi, locked])
 
   const handleFinish = () => {
     // Ask for confirmation when questions are still unanswered,
@@ -321,8 +331,11 @@ function ActiveQuiz({ session, quiz }: ActiveQuizProps) {
 
       <QuizCard
         question={question}
-        selectedAnswer={answers[question.id]}
+        selectedAnswers={answers[question.id]}
+        draft={drafts[question.id]}
         onSelect={(option) => quiz.selectAnswer(question.id, option)}
+        onToggle={(option) => quiz.toggleDraft(question.id, option)}
+        onCheck={() => quiz.commitAnswer(question.id)}
       />
 
       {confirmFinish && (
@@ -379,7 +392,8 @@ function ActiveQuiz({ session, quiz }: ActiveQuizProps) {
 
       <p className="text-center text-xs text-slate-400 dark:text-slate-600">
         Tip: use ← → to navigate, 1–{Math.min(question.options.length, 8)} or A–
-        {String.fromCharCode(64 + Math.min(question.options.length, 8))} to answer
+        {String.fromCharCode(64 + Math.min(question.options.length, 8))} to{' '}
+        {multi ? 'tick options, Enter to check' : 'answer'}
       </p>
     </div>
   )

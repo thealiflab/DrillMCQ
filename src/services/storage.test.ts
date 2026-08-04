@@ -25,8 +25,8 @@ const SESSION_KEY = 'drillmcq_active_session.v1'
 const LEGACY_SESSION_KEY = 'drillmcq.session.v1'
 
 const questions: QuizQuestion[] = [
-  { id: 1, question: 'Capital of France?', options: ['Paris', 'Rome'], correctAnswer: 'Paris' },
-  { id: 2, question: '2 + 2?', options: ['3', '4'], correctAnswer: '4', category: 'Maths' },
+  { id: 1, question: 'Capital of France?', options: ['Paris', 'Rome'], correctAnswers: ['Paris'] },
+  { id: 2, question: '2 + 2?', options: ['3', '4'], correctAnswers: ['4'], category: 'Maths' },
 ]
 
 function makeQuiz(overrides: Partial<SavedQuiz> = {}): SavedQuiz {
@@ -56,7 +56,7 @@ function makeAttempt(overrides: Partial<QuizAttempt> = {}): QuizAttempt {
     percentage: 50,
     settings: { shuffleQuestions: false, shuffleOptions: false, timerMinutes: 0, categories: [] },
     questions,
-    answers: { 1: 'Paris', 2: '3' },
+    answers: { 1: ['Paris'], 2: ['3'] },
     ...overrides,
   }
 }
@@ -64,7 +64,8 @@ function makeAttempt(overrides: Partial<QuizAttempt> = {}): QuizAttempt {
 function makeSession(overrides: Partial<QuizSession> = {}): QuizSession {
   return {
     questions,
-    answers: { 1: 'Paris' },
+    answers: { 1: ['Paris'] },
+    drafts: {},
     currentIndex: 1,
     status: 'active',
     startedAt: 5000,
@@ -189,7 +190,7 @@ describe('active session', () => {
     const session = makeSession()
     saveSession(session)
     const loaded = loadSession()
-    expect(loaded?.answers).toEqual({ 1: 'Paris' })
+    expect(loaded?.answers).toEqual({ 1: ['Paris'] })
     expect(loaded?.currentIndex).toBe(1)
     expect(loaded?.attemptId).toBe('attempt_live')
     expect(loaded?.quizId).toBe('quiz_1')
@@ -300,9 +301,49 @@ describe('migration', () => {
 
     const loaded = loadSession()
 
-    expect(loaded?.answers).toEqual({ 1: 'Paris' })
+    expect(loaded?.answers).toEqual({ 1: ['Paris'] })
     expect(loaded?.currentIndex).toBe(1)
-    expect(storage.getItem('drillmcq_schema_version')).toBe('1')
+    expect(storage.getItem('drillmcq_schema_version')).toBe('2')
+  })
+
+  it('upgrades pre-multi-answer questions and answers in place', () => {
+    // Exactly what a v1 build wrote: a single `correctAnswer` string per
+    // question and a bare string per answer.
+    const legacyQuestions = [
+      { id: 1, question: 'Capital of France?', options: ['Paris', 'Rome'], correctAnswer: 'Paris' },
+    ]
+    storage.setItem('drillmcq_schema_version', '1')
+    storage.setItem(
+      SESSION_KEY,
+      JSON.stringify({
+        questions: legacyQuestions,
+        answers: { 1: 'Paris' },
+        currentIndex: 0,
+        status: 'active',
+        startedAt: 7,
+        timerMinutes: 0,
+        attemptId: 'attempt_old',
+      }),
+    )
+    storage.setItem(
+      SAVED_QUIZZES_KEY,
+      JSON.stringify([{ ...makeQuiz(), questions: legacyQuestions }]),
+    )
+    storage.setItem(
+      RESULTS_KEY,
+      JSON.stringify([{ ...makeAttempt(), questions: legacyQuestions, answers: { 1: 'Paris' } }]),
+    )
+
+    const session = loadSession()
+    expect(session?.questions[0].correctAnswers).toEqual(['Paris'])
+    expect(session?.answers).toEqual({ 1: ['Paris'] })
+    expect(session?.drafts).toEqual({})
+    expect(loadSavedQuizzes()[0].questions[0].correctAnswers).toEqual(['Paris'])
+    expect(loadAttempts()[0].answers).toEqual({ 1: ['Paris'] })
+    expect(storage.getItem('drillmcq_schema_version')).toBe('2')
+
+    // The upgrade is written back, so the stored copy is already current.
+    expect(storage.getItem(SESSION_KEY)).toContain('correctAnswers')
   })
 
   it('does not clobber an existing session with the legacy one', () => {
@@ -312,7 +353,7 @@ describe('migration', () => {
   })
 
   it('leaves an already-migrated store untouched', () => {
-    storage.setItem('drillmcq_schema_version', '1')
+    storage.setItem('drillmcq_schema_version', '2')
     storage.setItem(LEGACY_SESSION_KEY, JSON.stringify(makeSession({ attemptId: 'legacy' })))
     expect(loadSession()).toBeNull()
   })

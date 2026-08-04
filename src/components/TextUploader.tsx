@@ -1,6 +1,7 @@
 import { useDeferredValue, useMemo, useState } from 'react'
 import type { QuizQuestion } from '../types/quiz'
 import { parseMcqText } from '../utils/parseMcqText'
+import { isMultiAnswer } from '../utils/quiz'
 
 interface TextUploaderProps {
   onLoad: (questions: QuizQuestion[]) => void
@@ -17,7 +18,17 @@ C. Mitochondria
 D. Lysosomes
 
 Answer: C
-Explanation: The mitochondrion (plural: mitochondria) is the powerhouse of the cell. These tiny, membrane-bound organelles take nutrients like glucose and oxygen and convert them into adenosine triphosphate (ATP), which is the primary energy currency that cells use to power bodily functions.`
+Explanation: The mitochondrion (plural: mitochondria) is the powerhouse of the cell. These tiny, membrane-bound organelles take nutrients like glucose and oxygen and convert them into adenosine triphosphate (ATP), which is the primary energy currency that cells use to power bodily functions.
+
+2. Which of the following are programming languages?
+
+A. Python
+B. HTML
+C. Java
+D. CSS
+
+Answer: A, C
+Explanation: HTML and CSS are markup and styling languages, not programming languages.`
 
 /**
  * Plain-text MCQ import: paste raw questions, watch a live parsing preview,
@@ -119,20 +130,28 @@ export function TextUploader({ onLoad }: TextUploaderProps) {
                     {q.category}
                   </span>
                 )}
+                {isMultiAnswer(q) && (
+                  <span className="ml-2 rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-800 dark:bg-amber-950 dark:text-amber-300">
+                    {q.correctAnswers.length} answers
+                  </span>
+                )}
               </p>
               <ul className="space-y-0.5">
-                {q.options.map((option) => (
-                  <li
-                    key={option}
-                    className={
-                      option === q.correctAnswer
-                        ? 'font-medium text-green-700 dark:text-green-400'
-                        : 'text-slate-600 dark:text-slate-400'
-                    }
-                  >
-                    {option === q.correctAnswer ? '✓' : '•'} {option}
-                  </li>
-                ))}
+                {q.options.map((option) => {
+                  const correct = q.correctAnswers.includes(option)
+                  return (
+                    <li
+                      key={option}
+                      className={
+                        correct
+                          ? 'font-medium text-green-700 dark:text-green-400'
+                          : 'text-slate-600 dark:text-slate-400'
+                      }
+                    >
+                      {correct ? '✓' : '•'} {option}
+                    </li>
+                  )
+                })}
               </ul>
               {q.explanation && (
                 <p className="mt-1.5 text-xs italic text-slate-500 dark:text-slate-500">

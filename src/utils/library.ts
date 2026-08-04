@@ -43,6 +43,7 @@ export function buildSession(
   return {
     questions,
     answers: {},
+    drafts: {},
     currentIndex: 0,
     status: 'active',
     startedAt: Date.now(),
@@ -60,6 +61,7 @@ export function sessionToProgress(session: QuizSession): SavedQuizProgress {
     attemptId: session.attemptId,
     questions: session.questions,
     answers: session.answers,
+    drafts: session.drafts,
     currentIndex: session.currentIndex,
     startedAt: session.startedAt,
     timerMinutes: session.timerMinutes,
@@ -73,6 +75,7 @@ export function progressToSession(quiz: SavedQuiz, progress: SavedQuizProgress):
   return {
     questions: progress.questions,
     answers: progress.answers,
+    drafts: progress.drafts,
     currentIndex: progress.currentIndex,
     status: 'active',
     startedAt: progress.startedAt,
@@ -113,6 +116,9 @@ export function attemptToSession(attempt: QuizAttempt): QuizSession {
   return {
     questions: attempt.questions,
     answers: attempt.answers,
+    // An attempt only ever stores submitted answers, so there is nothing in
+    // flight to restore.
+    drafts: {},
     currentIndex: 0,
     status: 'finished',
     startedAt: attempt.startedAt,

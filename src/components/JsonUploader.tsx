@@ -11,10 +11,18 @@ const SCHEMA_EXAMPLE = `[
     "id": 1,
     "question": "What is the powerhouse of the cell?",
     "options": ["Nucleus", "Ribosomes", "Mitochondria", "Lysosomes"],
-    "correctAnswer": "Mitochondria",
+    "correctAnswers": ["Mitochondria"],
     "explanation": "The mitochondrion (plural: mitochondria) is the powerhouse of the cell. These tiny, membrane-bound organelles take nutrients like glucose and oxygen and convert them into adenosine triphosphate (ATP), which is the primary energy currency that cells use to power bodily functions.",
     "category": "Biology",
     "difficulty": "easy"
+  },
+  {
+    "id": 2,
+    "question": "Which of the following are programming languages?",
+    "options": ["Python", "HTML", "Java", "CSS"],
+    "correctAnswers": ["Python", "Java"],
+    "explanation": "HTML is a markup language and CSS is a stylesheet language.",
+    "category": "Computing"
   }
 ]`
 

@@ -13,6 +13,7 @@ import type { QuizQuestion } from '../types/quiz'
  *   - Option / * Option                  ← bulleted options
  *   1. Option (runs of ≥2 numbered lines under a question are options)
  *   Answer: B | Correct Answer: Canberra | Ans: 3
+ *   Answer: A, C | Answer: a, b and d      ← two or more = multi-select
  *   Explanation: ... | Reason: ...
  *   Category: ... | Topic: ...
  *
@@ -84,9 +85,9 @@ const NOISE_RES: RegExp[] = [
   /^\d{1,4}\s*(?:of|\/)\s*\d{1,4}$/i,
   /^\d{1,4}$/,
   // Quiz-site UI chrome around the answer.
-  /^(?:show|hide|view|check|reveal|see|display)\s+(?:the\s+)?(?:correct\s+)?answer[.!»→]*$/i,
-  /^answer\s*[&/]\s*(?:explanation|solution)$/i,
-  /^(?:answer|solution|explanation)$/i,
+  /^(?:show|hide|view|check|reveal|see|display)\s+(?:the\s+)?(?:correct\s+)?answers?[.!»→]*$/i,
+  /^answers?\s*[&/]\s*(?:explanations?|solutions?)$/i,
+  /^(?:answers?|solutions?|explanations?)$/i,
   // Navigation buttons and quiz controls.
   /^[«‹<←]*\s*(?:next|previous|prev|back|submit|skip|continue|finish|start\s+quiz|restart|try\s+again)(?:\s+(?:question|quiz|page))?\s*[»›>→]*$/i,
   // Social / engagement widgets.
@@ -111,7 +112,7 @@ function isNoise(line: string): boolean {
   return NOISE_RES.some((re) => re.test(trimmed))
 }
 
-const ANSWER_RE = /^\s*(?:correct\s*answer|answer|ans|correct)\s*[:\-–—]\s*(.+)$/i
+const ANSWER_RE = /^\s*(?:correct\s*answers?|answers?|ans|correct)\s*[:\-–—]\s*(.+)$/i
 const EXPLANATION_RE = /^\s*(?:explanation|reason|rationale|because|why)\s*[:\-–—]\s*(.*)$/i
 const CATEGORY_RE = /^\s*(?:category|topic|subject)\s*[:\-–—]\s*(.+)$/i
 const LETTER_OPTION_RE = /^\s*\(?([A-Ha-h])[.)\]:]\s+(.+)$/
@@ -181,6 +182,47 @@ function resolveAnswer(raw: string, options: string[]): string | null {
   if (partial.length === 1) return partial[0]
 
   return null
+}
+
+/** Separators between the parts of a multi-answer line: "A, C", "A and C". */
+const ANSWER_SEPARATOR_RE = /\s*(?:,|;|&|\/|\+|\band\b)\s*/i
+
+/**
+ * Map a raw answer string onto one *or more* options, which is what decides
+ * whether the question ends up single- or multi-select.
+ *
+ * Order matters: an exact option match has to be tried on the whole value
+ * first, or a legitimate single answer containing a separator ("Atomicity,
+ * Consistency, Isolation, Durability") would be shredded into pieces.
+ */
+function resolveAnswers(raw: string, options: string[]): string[] | null {
+  const value = raw.trim()
+  const norm = (s: string) => s.trim().toLowerCase()
+
+  const exact = options.find((o) => norm(o) === norm(value))
+  if (exact) return [exact]
+
+  // "A, C" / "a, b and d" / "B; D": every part has to land on a distinct
+  // option, otherwise this wasn't a list and the single-answer path is right.
+  const parts = value
+    .split(ANSWER_SEPARATOR_RE)
+    .map((p) => p.trim())
+    .filter((p) => p !== '')
+  if (parts.length >= 2) {
+    const resolved: string[] = []
+    for (const part of parts) {
+      const option = resolveAnswer(part, options)
+      if (option === null || resolved.includes(option)) {
+        resolved.length = 0
+        break
+      }
+      resolved.push(option)
+    }
+    if (resolved.length === parts.length) return resolved
+  }
+
+  const single = resolveAnswer(value, options)
+  return single === null ? null : [single]
 }
 
 // --- main parse ----------------------------------------------------------
@@ -378,8 +420,8 @@ export function parseMcqText(text: string): ParsedMcq {
       continue
     }
 
-    const correctAnswer = resolveAnswer(raw.answerRaw, options)
-    if (correctAnswer === null) {
+    const correctAnswers = resolveAnswers(raw.answerRaw, options)
+    if (correctAnswers === null) {
       issues.push({
         line: raw.answerLine ?? raw.startLine,
         message: `"${excerpt}": answer "${raw.answerRaw}" doesn't match any option — skipped.`,
@@ -394,7 +436,7 @@ export function parseMcqText(text: string): ParsedMcq {
       id: questions.length + 1,
       question: questionText,
       options,
-      correctAnswer,
+      correctAnswers,
       ...(explanation !== '' && { explanation }),
       ...(raw.category && { category: raw.category }),
     })

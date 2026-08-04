@@ -6,8 +6,9 @@ A modern, fully client-side quiz platform built with **React**, **TypeScript**, 
 
 - **Plain-text MCQ import**: paste raw exam dumps or practice questions; a smart parser detects questions, options (A/B/C/D, a/b/c/d, numbered, bulleted), answers, explanations, and categories, with a live preview and per-line error/warning reporting. Common website and PDF clutter (ads, page numbers, "Show Answer" buttons, share widgets) is filtered out and reported as an ignored-lines count.
 - **JSON import**: paste JSON into a textarea, with friendly validation errors
+- **Multiple correct answers**: a question whose answer line lists more than one option (`Answer: A, C`) automatically becomes a "select all that apply" question with tick boxes and a **Check answer** button. Nothing to configure, and single-answer questions are unaffected.
 - **Professional quiz engine**: one question at a time, progress bar, next/previous navigation
-- **Keyboard navigation**: `←`/`→` to move between questions, `1–8` or `A–H` to select answers
+- **Keyboard navigation**: `←`/`→` to move between questions, `1–8` or `A–H` to select answers (they tick and untick on a multi-answer question, with `Enter` to check it)
 - **Results & review**: score, percentage, per-question review with correct/incorrect indicators
 - **Explanations**: optional expandable explanation per question
 - **Quiz library**: save imported quizzes to a local **My Quizzes** section on the main screen, with question count, categories, last score, and attempt status (not started / in progress / completed)
@@ -127,6 +128,15 @@ Question: Which language runs in the browser?
 - C++
 
 Answer: JavaScript
+
+12. Which of the following are characteristics of living organisms?
+
+a) Growth
+b) Reproduction
+c) Photosynthesis
+d) Respiration
+
+Answer: a, b, d
 ```
 
 Parsing rules:
@@ -134,6 +144,7 @@ Parsing rules:
 - **Questions** start with a number (`1.`), a header (`Q1.`, `Question:`), or plain text after a completed question
 - **Options** may be lettered (`A.`, `a)`, `(B)`), bulleted (`-`, `*`, `•`), or numbered (a run of 2+ numbered lines under a question)
 - **Answers** use `Answer:`, `Ans:`, `Correct Answer:`, or `Correct:` followed by a letter, number, or the option text itself
+- **Multiple answers** are written as a list on the same answer line: `Answer: A, C`, `Answer: A and C`, `Answer: a, b, d`, `Answer: A; C`. Every part has to resolve to a distinct option, otherwise the line is treated as a single answer — so an option whose own text contains a comma (`Answer: Atomicity, Consistency, Isolation, Durability`) is still matched as one answer
 - **Explanations** use `Explanation:`, `Reason:`, `Rationale:`, `Because:`, or `Why:`
 - **Categories** use `Category:`, `Topic:`, or `Subject:`
 - Malformed questions are skipped with a per-line error message; the rest of the bank still loads
@@ -153,25 +164,64 @@ The app accepts an **array of question objects**:
       "Application Web Services",
       "Automated Web Solution"
     ],
-    "correctAnswer": "Amazon Web Services",
+    "correctAnswers": ["Amazon Web Services"],
     "explanation": "AWS stands for Amazon Web Services, Amazon's cloud computing platform.",
     "category": "Cloud",
     "difficulty": "easy"
+  },
+  {
+    "id": 2,
+    "question": "Which of the following are programming languages?",
+    "options": ["Python", "HTML", "Java", "CSS"],
+    "correctAnswers": ["Python", "Java"]
   }
 ]
 ```
 
-| Field           | Type       | Required | Notes                                          |
-| --------------- | ---------- | -------- | ---------------------------------------------- |
-| `id`            | `number`   | Yes      | Must be unique across the quiz                 |
-| `question`      | `string`   | Yes      | The question text                              |
-| `options`       | `string[]` | Yes      | At least 2 options                             |
-| `correctAnswer` | `string`   | Yes      | Must exactly match one of the `options`        |
-| `explanation`   | `string`   | No       | Shown in an expandable panel when present      |
-| `category`      | `string`   | No       | Enables category filtering on the setup screen |
-| `difficulty`    | `string`   | No       | Displayed as a badge (e.g. `easy`, `medium`)   |
+| Field            | Type       | Required | Notes                                                                                       |
+| ---------------- | ---------- | -------- | ------------------------------------------------------------------------------------------- |
+| `id`             | `number`   | Yes      | Must be unique across the quiz                                                                |
+| `question`       | `string`   | Yes      | The question text                                                                             |
+| `options`        | `string[]` | Yes      | At least 2 options                                                                            |
+| `correctAnswers` | `string[]` | Yes      | At least one entry, no duplicates, each exactly matching an option. Two or more make it multi-select |
+| `explanation`    | `string`   | No       | Shown in an expandable panel when present                                                     |
+| `category`       | `string`   | No       | Enables category filtering on the setup screen                                                |
+| `difficulty`     | `string`   | No       | Displayed as a badge (e.g. `easy`, `medium`)                                                  |
+
+A single `"correctAnswer": "…"` string is still accepted in place of
+`correctAnswers`, so quizzes exported by an older build keep loading. Everything
+the app writes out uses `correctAnswers`.
 
 A ready-to-use sample lives at [`src/data/sampleQuiz.json`](src/data/sampleQuiz.json). You can also click **"Try the sample quiz"** on the JSON tab in the app.
+
+## Multiple correct answers
+
+A question is single- or multi-select purely from the number of entries in
+`correctAnswers` — there is no separate setting, and nothing to switch on.
+
+- **One correct answer**: unchanged. Click an option to select it; you can change
+  your mind any time before you finish.
+- **Two or more**: the card shows a **Select all that apply** badge and tick
+  boxes. Tick as many options as you like, then press **Check answer** (or
+  `Enter`) to submit them. The button stays disabled until you tick something.
+  **A multi-answer question can only be answered once** — it locks after you
+  check it, so the card warns you before you commit.
+
+Correctness is never revealed during the quiz. Both kinds of question are marked
+on the results screen, where each option is labelled as correct, missed, or a
+wrong pick.
+
+Scoring has no partial credit: a multi-answer question is correct only when the
+selected set is exactly the correct set. For correct answers `A, C`:
+
+| You selected | Result    |
+| ------------ | --------- |
+| A, C         | Correct   |
+| A            | Incorrect |
+| C            | Incorrect |
+| A, B, C      | Incorrect |
+| B, C         | Incorrect |
+| A, B         | Incorrect |
 
 ## Data & Storage
 
@@ -184,6 +234,10 @@ Everything is stored in your browser's `localStorage` under versioned keys:
 | `drillmcq_quiz_results.v1`     | Completed attempts (append-only)     |
 | `drillmcq.theme.v1`            | Dark/light preference                |
 | `drillmcq_schema_version`      | Schema version used for migrations   |
+
+The current schema version is **2**. Upgrading from an older version rewrites
+stored questions and answers into the multi-answer shape in place, so saved
+quizzes, an in-progress run, and your results history all survive the upgrade.
 
 Nothing is ever sent to a server. Clearing site data clears your quizzes and
 history. Corrupted records are repaired or dropped on load rather than crashing

@@ -3,7 +3,7 @@
     "id": 1,
     "question": "Which network protocol is primarily used to securely transfer files over a network?",
     "options": ["FTP", "SFTP", "HTTP", "SMTP"],
-    "correctAnswer": "SFTP",
+    "correctAnswers": ["SFTP"],
     "explanation": "SFTP (Secure File Transfer Protocol) runs over SSH (Secure Shell) to provide secure file access, transfer, and management capabilities over a reliable data stream.",
     "category": "Networking",
     "difficulty": "medium"
@@ -17,7 +17,7 @@
       "Automation, Concurrency, Indexing, Delivery",
       "Access, Control, Identification, Backup"
     ],
-    "correctAnswer": "Atomicity, Consistency, Isolation, Durability",
+    "correctAnswers": ["Atomicity, Consistency, Isolation, Durability"],
     "explanation": "ACID is a set of properties (Atomicity, Consistency, Isolation, Durability) that guarantee database transactions are processed reliably and maintain data integrity.",
     "category": "Databases",
     "difficulty": "medium"
@@ -26,7 +26,7 @@
     "id": 3,
     "question": "Which of the following is an example of a non-volatile memory type?",
     "options": ["SRAM", "DRAM", "NVMe SSD", "CPU Cache"],
-    "correctAnswer": "NVMe SSD",
+    "correctAnswers": ["NVMe SSD"],
     "explanation": "Non-volatile memory retains its saved data even when the device is powered off. Solid-state drives (SSDs) use flash memory, which is inherently non-volatile.",
     "category": "Hardware",
     "difficulty": "easy"
@@ -35,7 +35,7 @@
     "id": 4,
     "question": "In Git, which command is used to download objects and refs from another repository but does not merge them into your local branch?",
     "options": ["git pull", "git fetch", "git clone", "git checkout"],
-    "correctAnswer": "git fetch",
+    "correctAnswers": ["git fetch"],
     "explanation": "'git fetch' downloads the latest changes from a remote repository to your local machine but leaves your current working branch untouched, unlike 'git pull' which fetches and automatically merges.",
     "category": "DevOps",
     "difficulty": "medium"
@@ -44,7 +44,7 @@
     "id": 5,
     "question": "What is the time complexity of searching for an element in a balanced Binary Search Tree (BST) in the worst-case scenario?",
     "options": ["O(1)", "O(n)", "O(n log n)", "O(log n)"],
-    "correctAnswer": "O(log n)",
+    "correctAnswers": ["O(log n)"],
     "explanation": "Because a balanced Binary Search Tree splits the search space roughly in half with each step, the worst-case time complexity to find an element is logarithmic, or O(log n).",
     "category": "Data Structures & Algorithms",
     "difficulty": "hard"
@@ -58,7 +58,7 @@
       "To store website cookies",
       "To host website backend databases"
     ],
-    "correctAnswer": "To map human-readable domain names to IP addresses",
+    "correctAnswers": ["To map human-readable domain names to IP addresses"],
     "explanation": "DNS acts like the phonebook of the internet, translating domain names like 'example.com' into the numerical IP addresses that computers use to identify each other.",
     "category": "Networking",
     "difficulty": "easy"
@@ -67,7 +67,7 @@
     "id": 7,
     "question": "Which HTTP status code represents an unauthorized request error?",
     "options": ["400 Bad Request", "401 Unauthorized", "403 Forbidden", "404 Not Found"],
-    "correctAnswer": "401 Unauthorized",
+    "correctAnswers": ["401 Unauthorized"],
     "explanation": "The HTTP 401 Unauthorized client error status response code indicates that the request has not been applied because it lacks valid authentication credentials for the target resource.",
     "category": "Web Development",
     "difficulty": "easy"
@@ -81,7 +81,7 @@
       "A public key to decrypt and a separate private key to encrypt",
       "A rotating set of symmetric keys"
     ],
-    "correctAnswer": "A public key to encrypt and a separate private key to decrypt",
+    "correctAnswers": ["A public key to encrypt and a separate private key to decrypt"],
     "explanation": "Asymmetric cryptography (or public-key cryptography) uses a mathematically linked pair of keys. Anyone can encrypt a message using the public key, but only the holder of the corresponding private key can decrypt it.",
     "category": "Cybersecurity",
     "difficulty": "medium"
@@ -95,7 +95,7 @@
       "Managing distributed cloud databases",
       "Compiling source code into machine language"
     ],
-    "correctAnswer": "Containerizing applications to run consistently across different environments",
+    "correctAnswers": ["Containerizing applications to run consistently across different environments"],
     "explanation": "Docker is an open-source platform that packages applications and their dependencies into standard units called containers, ensuring they run smoothly regardless of the underlying infrastructure.",
     "category": "Cloud Computing",
     "difficulty": "easy"
@@ -109,9 +109,27 @@
       "Procedural Programming",
       "Imperative Programming"
     ],
-    "correctAnswer": "Functional Programming",
+    "correctAnswers": ["Functional Programming"],
     "explanation": "Functional programming is a paradigm where programs are constructed by applying and composing functions. It emphasizes immutability (data cannot be changed after creation) and pure functions (functions with no side effects).",
     "category": "Software Engineering",
     "difficulty": "hard"
+  },
+  {
+    "id": 11,
+    "question": "Which of the following are valid HTTP request methods?",
+    "options": ["PATCH", "FETCH", "DELETE", "RENDER"],
+    "correctAnswers": ["PATCH", "DELETE"],
+    "explanation": "PATCH applies a partial update to a resource and DELETE removes one. 'FETCH' and 'RENDER' are not HTTP methods — fetch() is a browser API, and rendering happens client- or server-side but is not part of the protocol.",
+    "category": "Web Development",
+    "difficulty": "medium"
+  },
+  {
+    "id": 12,
+    "question": "Which of the following data structures offer average-case O(1) lookup by key?",
+    "options": ["Hash table", "Balanced BST", "Linked list", "Python dictionary"],
+    "correctAnswers": ["Hash table", "Python dictionary"],
+    "explanation": "Hash tables — and Python's dict, which is implemented as one — resolve a key to a bucket in constant time on average. A balanced BST is O(log n), and a linked list must be walked, giving O(n).",
+    "category": "Data Structures & Algorithms",
+    "difficulty": "medium"
   }
 ]

@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import type { QuizSession } from '../types/quiz'
-import { computeResult } from '../utils/quiz'
+import { computeResult, isAnswerCorrect, isMultiAnswer } from '../utils/quiz'
 import { ExplanationPanel } from './ExplanationPanel'
 
 interface ResultScreenProps {
@@ -43,8 +43,7 @@ export function ResultScreen({
   const [search, setSearch] = useState('')
 
   const reviewQuestions = session.questions.filter((q) => {
-    const answer = session.answers[q.id]
-    if (incorrectOnly && answer === q.correctAnswer) return false
+    if (incorrectOnly && isAnswerCorrect(q, session.answers[q.id])) return false
     if (search.trim() !== '') {
       const haystack = `${q.question} ${q.options.join(' ')} ${q.category ?? ''}`.toLowerCase()
       if (!haystack.includes(search.trim().toLowerCase())) return false
@@ -154,7 +153,8 @@ export function ResultScreen({
         )}
         {reviewQuestions.map((q) => {
           const answer = session.answers[q.id]
-          const isCorrect = answer === q.correctAnswer
+          const isCorrect = isAnswerCorrect(q, answer)
+          const chosen = answer ?? []
           return (
             <div
               key={q.id}
@@ -176,30 +176,43 @@ export function ResultScreen({
                 </span>
               </div>
 
+              {isMultiAnswer(q) && (
+                <p className="mb-2 text-xs font-medium text-slate-500 dark:text-slate-400">
+                  Select all that apply · {q.correctAnswers.length} correct options
+                </p>
+              )}
+
               <div className="space-y-2">
                 {q.options.map((option) => {
-                  const isAnswer = option === q.correctAnswer
-                  const isChosen = option === answer
+                  const isAnswer = q.correctAnswers.includes(option)
+                  const isChosen = chosen.includes(option)
                   return (
                     <div
                       key={option}
                       className={`flex items-center justify-between gap-2 rounded-lg border px-3 py-2 text-sm ${
                         isAnswer
-                          ? 'border-green-400 bg-green-50 dark:border-green-800 dark:bg-green-950/50'
+                          ? isChosen
+                            ? 'border-green-400 bg-green-50 dark:border-green-800 dark:bg-green-950/50'
+                            : 'border-green-400 dark:border-green-800'
                           : isChosen
                             ? 'border-red-400 bg-red-50 dark:border-red-800 dark:bg-red-950/50'
                             : 'border-slate-200 dark:border-slate-800'
                       }`}
                     >
                       <span>{option}</span>
-                      {isAnswer && (
+                      {isAnswer && isChosen && (
                         <span className="text-xs font-medium text-green-700 dark:text-green-400">
-                          Correct answer
+                          ✓ Correct
+                        </span>
+                      )}
+                      {isAnswer && !isChosen && (
+                        <span className="text-xs font-medium text-green-700 dark:text-green-400">
+                          Correct answer{answer === undefined ? '' : ' (missed)'}
                         </span>
                       )}
                       {isChosen && !isAnswer && (
                         <span className="text-xs font-medium text-red-700 dark:text-red-400">
-                          Your answer
+                          ✗ Your answer
                         </span>
                       )}
                     </div>
