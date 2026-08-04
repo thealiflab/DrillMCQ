@@ -1,26 +1,26 @@
 # 🎯 DrillMCQ
 
-A modern, fully client-side quiz platform built with **React**, **TypeScript**, and **Vite**. Paste quiz questions in JSON format and instantly get a professional online-exam experience — no backend, no database, everything runs in your browser.
+A modern, fully client-side quiz platform built with **React**, **TypeScript**, and **Vite**. Paste quiz questions as plain text or JSON and instantly get a professional online-exam experience: no backend, no database, everything runs in your browser.
 
 ## Features
 
-- **Plain-text MCQ import** — paste raw exam dumps or practice questions; a smart parser detects questions, options (A/B/C/D, a/b/c/d, numbered, bulleted), answers, explanations, and categories, with a live preview and per-line error/warning reporting
-- **JSON import** — paste JSON into a textarea, with friendly validation errors
-- **Professional quiz engine** — one question at a time, progress bar, next/previous navigation
-- **Keyboard navigation** — `←`/`→` to move between questions, `1–8` or `A–H` to select answers
-- **Results & review** — score, percentage, per-question review with correct/incorrect indicators
-- **Explanations** — optional expandable explanation per question
-- **Quiz library** — save imported quizzes to a local **My Quizzes** section on the main screen, with question count, categories, last score, and attempt status (not started / in progress / completed)
-- **Resume** — leave or refresh mid-quiz and pick up from the library exactly where you left off, with answers, position, timer, and settings intact
-- **Results history** — every completed attempt is kept locally per quiz, with latest / best / average scores and a full review of any past attempt
-- **Session persistence** — progress, answers, and timer survive a page refresh (localStorage)
-- **Timer mode** — optional countdown that auto-submits when time runs out
-- **Shuffle** — optionally shuffle questions and/or options
-- **Category filtering** — pick which categories to include before starting
-- **Review tools** — filter to incorrect answers only, search questions
-- **Import/export** — export the loaded quiz back to a JSON file
-- **Dark/light mode** — toggle with saved preference (respects OS preference by default)
-- **Responsive** — works on mobile, tablet, and desktop
+- **Plain-text MCQ import**: paste raw exam dumps or practice questions; a smart parser detects questions, options (A/B/C/D, a/b/c/d, numbered, bulleted), answers, explanations, and categories, with a live preview and per-line error/warning reporting. Common website and PDF clutter (ads, page numbers, "Show Answer" buttons, share widgets) is filtered out and reported as an ignored-lines count.
+- **JSON import**: paste JSON into a textarea, with friendly validation errors
+- **Professional quiz engine**: one question at a time, progress bar, next/previous navigation
+- **Keyboard navigation**: `←`/`→` to move between questions, `1–8` or `A–H` to select answers
+- **Results & review**: score, percentage, per-question review with correct/incorrect indicators
+- **Explanations**: optional expandable explanation per question
+- **Quiz library**: save imported quizzes to a local **My Quizzes** section on the main screen, with question count, categories, last score, and attempt status (not started / in progress / completed)
+- **Resume**: leave or refresh mid-quiz and pick up from the library exactly where you left off, with answers, position, timer, and settings intact
+- **Results history**: every completed attempt is kept locally per quiz, with latest / best / average scores and a full review of any past attempt
+- **Session persistence**: progress, answers, and timer survive a page refresh (localStorage)
+- **Timer mode**: optional countdown that auto-submits when time runs out
+- **Shuffle**: optionally shuffle questions and/or options
+- **Category filtering**: pick which categories to include before starting
+- **Review tools**: filter to incorrect answers only, search questions
+- **JSON export**: download the loaded quiz as a JSON file from the results screen
+- **Dark/light mode**: toggle with saved preference (respects OS preference by default)
+- **Responsive**: works on mobile, tablet, and desktop
 
 ## Screenshots
 
@@ -35,7 +35,8 @@ A modern, fully client-side quiz platform built with **React**, **TypeScript**, 
 - [React 19](https://react.dev/) + [TypeScript](https://www.typescriptlang.org/) (strict mode)
 - [Vite](https://vite.dev/) for dev server and builds
 - [Tailwind CSS v4](https://tailwindcss.com/) for styling
-- `localStorage` for persistence — **no backend, no database**
+- [Vitest](https://vitest.dev/) for unit tests
+- `localStorage` for persistence: **no backend, no database**
 
 ## Getting Started
 
@@ -71,6 +72,8 @@ The optimized static site is emitted to `dist/`. Preview it locally with:
 npm run preview
 ```
 
+That serves the production build on http://localhost:4173.
+
 ### Lint
 
 ```bash
@@ -87,7 +90,14 @@ npm run test:watch
 Tests cover the storage layer (saving, loading, updating and deleting quizzes and
 results, corrupted data, migration) and the pure library/history logic.
 
-## Plain Text Format
+## Importing Questions
+
+The importer has two tabs, **Plain text** and **JSON**. Both are paste-only
+textareas; there is no file-upload input. After a successful import you can name
+and save the quiz to your library, then choose shuffle, timer, and category
+options before starting.
+
+### Plain text format
 
 The **Plain text** tab accepts loosely formatted MCQ content. All of these work (and can be mixed in one paste):
 
@@ -128,7 +138,7 @@ Parsing rules:
 - **Categories** use `Category:`, `Topic:`, or `Subject:`
 - Malformed questions are skipped with a per-line error message; the rest of the bank still loads
 
-## Quiz JSON Schema
+### Quiz JSON schema
 
 The app accepts an **array of question objects**:
 
@@ -151,17 +161,34 @@ The app accepts an **array of question objects**:
 ]
 ```
 
-| Field           | Type       | Required | Notes                                             |
-| --------------- | ---------- | -------- | ------------------------------------------------- |
-| `id`            | `number`   | ✅       | Must be unique across the quiz                    |
-| `question`      | `string`   | ✅       | The question text                                 |
-| `options`       | `string[]` | ✅       | At least 2 options                                |
-| `correctAnswer` | `string`   | ✅       | Must exactly match one of the `options`           |
-| `explanation`   | `string`   | —        | Shown in an expandable panel when present         |
-| `category`      | `string`   | —        | Enables category filtering on the setup screen    |
-| `difficulty`    | `string`   | —        | Displayed as a badge (e.g. `easy`, `medium`)      |
+| Field           | Type       | Required | Notes                                          |
+| --------------- | ---------- | -------- | ---------------------------------------------- |
+| `id`            | `number`   | Yes      | Must be unique across the quiz                 |
+| `question`      | `string`   | Yes      | The question text                              |
+| `options`       | `string[]` | Yes      | At least 2 options                             |
+| `correctAnswer` | `string`   | Yes      | Must exactly match one of the `options`        |
+| `explanation`   | `string`   | No       | Shown in an expandable panel when present      |
+| `category`      | `string`   | No       | Enables category filtering on the setup screen |
+| `difficulty`    | `string`   | No       | Displayed as a badge (e.g. `easy`, `medium`)   |
 
-A ready-to-use sample lives at [`src/data/sampleQuiz.json`](src/data/sampleQuiz.json) — or click **"Try the sample quiz"** in the app.
+A ready-to-use sample lives at [`src/data/sampleQuiz.json`](src/data/sampleQuiz.json). You can also click **"Try the sample quiz"** on the JSON tab in the app.
+
+## Data & Storage
+
+Everything is stored in your browser's `localStorage` under versioned keys:
+
+| Key                            | Contents                             |
+| ------------------------------ | ------------------------------------ |
+| `drillmcq_active_session.v1`   | The in-progress quiz session         |
+| `drillmcq_saved_quizzes.v1`    | The **My Quizzes** library           |
+| `drillmcq_quiz_results.v1`     | Completed attempts (append-only)     |
+| `drillmcq.theme.v1`            | Dark/light preference                |
+| `drillmcq_schema_version`      | Schema version used for migrations   |
+
+Nothing is ever sent to a server. Clearing site data clears your quizzes and
+history. Corrupted records are repaired or dropped on load rather than crashing
+the app, and if `localStorage` is full or blocked the app still runs, it just
+stops persisting.
 
 ## Deployment
 
@@ -176,12 +203,12 @@ One-time setup:
 1. Push the repository to GitHub
 2. Go to **Settings → Pages**
 3. Under **Build and deployment**, set **Source** to **GitHub Actions**
-4. Push to `main` — the site deploys to `https://<username>.github.io/DrillMCQ/`
+4. Push to `main`, and the site deploys to `https://<username>.github.io/DrillMCQ/`
 
 ### Vercel
 
 1. Import the repository at [vercel.com/new](https://vercel.com/new)
-2. Vercel auto-detects Vite — accept the defaults:
+2. Vercel auto-detects Vite, so accept the defaults:
    - **Build command:** `npm run build`
    - **Output directory:** `dist`
 3. Deploy 🎉
