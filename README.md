@@ -137,13 +137,25 @@ c) Photosynthesis
 d) Respiration
 
 Answer: a, b, d
+
+AI Practitioner Exam Question 5
+Which AWS service records configuration changes over time?
+
+❏ A. AWS Security Hub
+
+❏ B. AWS Config
+
+❏ C. AWS CloudTrail
+
+✓ B. AWS Config
 ```
 
 Parsing rules:
 
-- **Questions** start with a number (`1.`), a header (`Q1.`, `Question:`), or plain text after a completed question
-- **Options** may be lettered (`A.`, `a)`, `(B)`), bulleted (`-`, `*`, `•`), or numbered (a run of 2+ numbered lines under a question)
+- **Questions** start with a number (`1.`), a header (`Q1.`, `Question:`), a titled header (`AI Practitioner Exam Question 5`), or plain text after a completed question
+- **Options** may be lettered (`A.`, `a)`, `(B)`), bulleted (`-`, `*`, `•`), or numbered (a run of 2+ numbered lines under a question). A leading checkbox glyph (`❏`, `☐`, `□`, `○`) is stripped, so exam dumps paste in as-is
 - **Answers** use `Answer:`, `Ans:`, `Correct Answer:`, or `Correct:` followed by a letter, number, or the option text itself
+- **Ticked answers** are also read: a line marked `✓` (or `✔`, `☑`) names the correct option, whether the tick sits on an option inside the list or repeats the winning option below it. Several ticked lines make the question a "select all that apply". An explicit `Answer:` line wins if both are present
 - **Multiple answers** are written as a list on the same answer line: `Answer: A, C`, `Answer: A and C`, `Answer: a, b, d`, `Answer: A; C`. Every part has to resolve to a distinct option, otherwise the line is treated as a single answer — so an option whose own text contains a comma (`Answer: Atomicity, Consistency, Isolation, Durability`) is still matched as one answer
 - **Explanations** use `Explanation:`, `Reason:`, `Rationale:`, `Because:`, or `Why:`
 - **Categories** use `Category:`, `Topic:`, or `Subject:`

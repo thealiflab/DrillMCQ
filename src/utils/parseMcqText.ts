@@ -50,6 +50,7 @@ type LineKind =
   | 'category'
   | 'letterOption'
   | 'bulletOption'
+  | 'checkedOption'
   | 'numbered'
   | 'questionHeader'
   | 'text'
@@ -58,7 +59,7 @@ interface Classified {
   kind: LineKind
   /** Payload after the marker/label (option text, answer value, etc.). */
   value: string
-  /** Option letter for letterOption lines. */
+  /** Option letter for letterOption/checkedOption lines. */
   label?: string
 }
 
@@ -119,6 +120,18 @@ const LETTER_OPTION_RE = /^\s*\(?([A-Ha-h])[.)\]:]\s+(.+)$/
 const BULLET_OPTION_RE = /^\s*[-*•▪◦]\s+(.+)$/
 const NUMBERED_RE = /^\s*\(?(\d{1,3})[.)\]:]\s*(.+)$/
 const QUESTION_HEADER_RE = /^\s*(?:question|q)\s*\d*\s*[:.)\]]\s*(.*)$/i
+// A header carrying a title in front of the numbering: "AI Practitioner Exam
+// Question 1", "Set B — Question 12:". The prefix charclass excludes sentence
+// punctuation and the number after "question" is required, so ordinary prose
+// ("…which answers this question?") can't match.
+const TITLED_HEADER_RE = /^[\w\s'&()\-–—]{1,60}?\bquestions?\s*[#№]?\s*\d{1,3}\s*[:.)\]\-–—]?\s*(.*)$/i
+
+// Empty checkbox/radio glyphs that exam dumps put in front of every option.
+const UNCHECKED_MARK_RE = /^\s*[❏☐▢□⬜◻▫○◯◽]\s*/
+// The same, but ticked — the paste's way of pointing at the correct option.
+const CHECKED_MARK_RE = /^\s*[✓✔✅☑]\s*/
+/** Leading option marker on a checked line: "B. text", "(b) text", "3) text". */
+const CHECKED_LABEL_RE = /^\(?([A-Ha-h])[.)\]:]\s+/
 
 function classify(line: string): Classified {
   if (line.trim() === '') return { kind: 'blank', value: '' }
@@ -126,6 +139,35 @@ function classify(line: string): Classified {
   // real answer/option line ("Answer: B", "A. Share") can't be swallowed.
   if (isNoise(line)) return { kind: 'noise', value: '' }
 
+  const checked = CHECKED_MARK_RE.exec(line)
+  if (checked) {
+    const rest = line.slice(checked[0].length).trim()
+    if (rest !== '') {
+      const labelled = CHECKED_LABEL_RE.exec(rest)
+      return {
+        kind: 'checkedOption',
+        value: rest,
+        ...(labelled && { label: labelled[1].toUpperCase() }),
+      }
+    }
+  }
+
+  // An empty checkbox is pure decoration: strip it and classify what's behind
+  // it, so "❏ A. Foo" is a letter option and "❏ Foo" is a bullet option.
+  const unchecked = UNCHECKED_MARK_RE.exec(line)
+  if (unchecked) {
+    const rest = line.slice(unchecked[0].length)
+    if (rest.trim() !== '') {
+      const inner = classifyBody(rest)
+      // The glyph itself is a bullet, so unlabelled text behind it is an option.
+      return inner.kind === 'text' ? { kind: 'bulletOption', value: inner.value } : inner
+    }
+  }
+
+  return classifyBody(line)
+}
+
+function classifyBody(line: string): Classified {
   let m = ANSWER_RE.exec(line)
   if (m) return { kind: 'answer', value: m[1].trim() }
   m = EXPLANATION_RE.exec(line)
@@ -139,6 +181,8 @@ function classify(line: string): Classified {
   m = NUMBERED_RE.exec(line)
   if (m) return { kind: 'numbered', value: m[2].trim() }
   m = QUESTION_HEADER_RE.exec(line)
+  if (m) return { kind: 'questionHeader', value: m[1].trim() }
+  m = TITLED_HEADER_RE.exec(line)
   if (m) return { kind: 'questionHeader', value: m[1].trim() }
   return { kind: 'text', value: line.trim() }
 }
@@ -233,12 +277,16 @@ interface RawQuestion {
   options: { text: string; line: number }[]
   answerRaw?: string
   answerLine?: number
+  /** Options pointed at by a "✓" marker instead of an "Answer:" line. */
+  checkedAnswers: { raw: string; line: number }[]
+  /** True once an option carried an A./B./… label, so ticks can be read against it. */
+  labelledOptions?: boolean
   explanationLines: string[]
   category?: string
 }
 
 function emptyRaw(startLine: number): RawQuestion {
-  return { startLine, questionLines: [], options: [], explanationLines: [] }
+  return { startLine, questionLines: [], options: [], checkedAnswers: [], explanationLines: [] }
 }
 
 function hasContent(raw: RawQuestion): boolean {
@@ -247,6 +295,15 @@ function hasContent(raw: RawQuestion): boolean {
 
 /** A question that already has options and an answer — new prose starts the next one. */
 function isComplete(raw: RawQuestion): boolean {
+  return raw.options.length >= 2 && (raw.answerRaw !== undefined || raw.checkedAnswers.length > 0)
+}
+
+/**
+ * Stricter form used on option lines only: an option below an "Answer:" line
+ * means a new question began, but a "✓" tick applied *inside* an option list
+ * doesn't end anything — the options after it still belong to this question.
+ */
+function answeredByLine(raw: RawQuestion): boolean {
   return raw.options.length >= 2 && raw.answerRaw !== undefined
 }
 
@@ -327,7 +384,7 @@ export function parseMcqText(text: string): ParsedMcq {
         // Options belong to the current question; if a complete question is
         // above us, an option can't start a new one — but options appearing
         // after an answer usually mean a new (header-less) question began.
-        if (isComplete(current)) flush(lineNo)
+        if (answeredByLine(current)) flush(lineNo)
         if (label && current.options.length === 0 && label !== 'A') {
           issues.push({
             line: lineNo,
@@ -335,7 +392,43 @@ export function parseMcqText(text: string): ParsedMcq {
             severity: 'warning',
           })
         }
+        if (label) current.labelledOptions = true
         current.options.push({ text: value, line: lineNo })
+        inExplanation = false
+        break
+      }
+
+      case 'checkedOption': {
+        // A ticked line always names the correct answer. Whether it is *also* a
+        // new option depends on the layout: dumps either tick one entry inside
+        // the option list, or repeat the winning entry below the whole list.
+        // The label settles it — a letter that already has an option above it
+        // is a repeat; one past the end is the next option being introduced.
+        const body = value.replace(CHECKED_LABEL_RE, '').trim()
+        const bareLabel = /^\(?(?:[A-Ha-h]|\d{1,3})[.)\]:]?$/.test(value)
+        const labelIndex = label ? label.charCodeAt(0) - 65 : -1
+        const isRepeat =
+          bareLabel ||
+          body === '' ||
+          (labelIndex >= 0 && labelIndex < current.options.length) ||
+          current.options.some((o) => o.text.trim().toLowerCase() === body.toLowerCase()) ||
+          // No label of its own under a lettered list: it can only be pointing
+          // back at one of those options, never introducing a new one.
+          (labelIndex < 0 && current.labelledOptions === true)
+
+        if (!isRepeat) {
+          if (answeredByLine(current)) flush(lineNo)
+          if (label && current.options.length === 0 && label !== 'A') {
+            issues.push({
+              line: lineNo,
+              message: `Options start at "${label}" — earlier options may not have been detected.`,
+              severity: 'warning',
+            })
+          }
+          if (label) current.labelledOptions = true
+          current.options.push({ text: body, line: lineNo })
+        }
+        current.checkedAnswers.push({ raw: value, line: lineNo })
         inExplanation = false
         break
       }
@@ -410,7 +503,7 @@ export function parseMcqText(text: string): ParsedMcq {
       })
     }
 
-    if (raw.answerRaw === undefined) {
+    if (raw.answerRaw === undefined && raw.checkedAnswers.length === 0) {
       issues.push({
         line: raw.startLine,
         message: `"${excerpt}": no "Answer:" line found — skipped.`,
@@ -420,11 +513,34 @@ export function parseMcqText(text: string): ParsedMcq {
       continue
     }
 
-    const correctAnswers = resolveAnswers(raw.answerRaw, options)
-    if (correctAnswers === null) {
+    // An explicit "Answer:" line wins when both are present — it's the more
+    // deliberate signal, and the ticked lines have already contributed options.
+    let correctAnswers: string[] | null
+    let answerLine = raw.answerLine ?? raw.startLine
+    let answerDesc = raw.answerRaw ?? ''
+    if (raw.answerRaw !== undefined) {
+      correctAnswers = resolveAnswers(raw.answerRaw, options)
+    } else {
+      // Each tick is resolved on its own — never through resolveAnswers, whose
+      // separator split would shred a single answer containing " and "/",".
+      const resolved: string[] = []
+      correctAnswers = resolved
+      for (const checked of raw.checkedAnswers) {
+        const option = resolveAnswer(checked.raw, options)
+        if (option === null) {
+          correctAnswers = null
+          answerLine = checked.line
+          answerDesc = checked.raw
+          break
+        }
+        if (!resolved.includes(option)) resolved.push(option)
+      }
+    }
+
+    if (correctAnswers === null || correctAnswers.length === 0) {
       issues.push({
-        line: raw.answerLine ?? raw.startLine,
-        message: `"${excerpt}": answer "${raw.answerRaw}" doesn't match any option — skipped.`,
+        line: answerLine,
+        message: `"${excerpt}": answer "${answerDesc}" doesn't match any option — skipped.`,
         severity: 'error',
       })
       skipped++

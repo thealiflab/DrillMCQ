@@ -148,3 +148,115 @@ Answer: A, C`)
     ])
   })
 })
+
+describe('checkbox-marked pastes', () => {
+  /** Exam-dump shape: titled header, "❏" options, the answer repeated under "✓". */
+  const EXAM_BLOCK = `AI Practitioner Exam Question 1
+A digital media startup, BrightWave Studios, is evaluating Amazon Q Developer to speed up coding. What should you tell them about its availability across developer tools and AWS interfaces?
+
+❏ A. Amazon Q Developer is limited to desktop IDEs only
+
+❏ B. Amazon Q Developer is available in IDEs and in the AWS Management Console
+
+❏ C. Amazon Q Developer is offered solely through AWS Chatbot integrations like Slack and Amazon Chime
+
+❏ D. Amazon Q Developer can be used only inside the AWS Management Console
+
+✓ B. Amazon Q Developer is available in IDEs and in the AWS Management Console
+`
+
+  it('reads the ticked option as the answer', () => {
+    const q = parseOne(EXAM_BLOCK)
+    expect(q.options).toHaveLength(4)
+    expect(q.correctAnswers).toEqual([
+      'Amazon Q Developer is available in IDEs and in the AWS Management Console',
+    ])
+  })
+
+  it('drops the titled header from the question text', () => {
+    const q = parseOne(EXAM_BLOCK)
+    expect(q.question).toBe(
+      'A digital media startup, BrightWave Studios, is evaluating Amazon Q Developer to speed up coding. What should you tell them about its availability across developer tools and AWS interfaces?',
+    )
+  })
+
+  it('parses a run of exam-dump questions', () => {
+    const parsed = parseMcqText(`${EXAM_BLOCK}
+
+AI Practitioner Exam Question 2
+An online marketplace has collected 120 TB of unlabeled clickstream data and wants to group shoppers into tiers. Which approach should the team choose?
+
+❏ A. Reinforcement learning
+
+❏ B. Unsupervised learning
+
+❏ C. Supervised learning
+
+❏ D. Amazon SageMaker Ground Truth
+
+✓ B. Unsupervised learning
+
+
+AI Practitioner Exam Question 3
+A language learning app wants shorter hints. Which parameter change enforces shorter responses?
+
+❏ A. Decrease the temperature setting
+
+❏ B. Choose a smaller model size
+
+❏ C. Set a lower max tokens limit
+
+❏ D. Expand the context window
+✓ C. Set a lower max tokens limit`)
+
+    expect(parsed.skipped).toBe(0)
+    expect(parsed.issues.filter((i) => i.severity === 'error')).toEqual([])
+    expect(parsed.questions).toHaveLength(3)
+    expect(parsed.questions.map((q) => q.options.length)).toEqual([4, 4, 4])
+    expect(parsed.questions.map((q) => q.correctAnswers)).toEqual([
+      ['Amazon Q Developer is available in IDEs and in the AWS Management Console'],
+      ['Unsupervised learning'],
+      ['Set a lower max tokens limit'],
+    ])
+  })
+
+  it('ticks an option inline in the list without duplicating it', () => {
+    const q = parseOne(`Which planet is the largest?
+
+❏ A. Mars
+✓ B. Jupiter
+❏ C. Venus
+❏ D. Mercury`)
+
+    expect(q.options).toEqual(['Mars', 'Jupiter', 'Venus', 'Mercury'])
+    expect(q.correctAnswers).toEqual(['Jupiter'])
+  })
+
+  it('treats several ticks as one multi-answer question', () => {
+    const parsed = parseMcqText(`Which of the following are operating systems?
+
+❏ A. Windows
+❏ B. Python
+❏ C. Linux
+❏ D. Java
+
+✓ A. Windows
+✓ C. Linux`)
+
+    expect(parsed.questions).toHaveLength(1)
+    expect(parsed.questions[0].correctAnswers).toEqual(['Windows', 'Linux'])
+  })
+
+  it('skips a block whose tick matches no option', () => {
+    const parsed = parseMcqText(`Which planet is the largest?
+
+❏ A. Mars
+❏ B. Jupiter
+
+✓ Z`)
+
+    expect(parsed.questions).toHaveLength(0)
+    expect(parsed.skipped).toBe(1)
+    expect(parsed.issues[0].message).toContain("doesn't match any option")
+  })
+})

@@ -28,7 +28,16 @@ C. Java
 D. CSS
 
 Answer: A, C
-Explanation: HTML and CSS are markup and styling languages, not programming languages.`
+Explanation: HTML and CSS are markup and styling languages, not programming languages.
+
+Sample Exam Question 3
+Which AWS service records configuration changes over time?
+
+❏ A. AWS Security Hub
+❏ B. AWS Config
+❏ C. AWS CloudTrail
+
+✓ B. AWS Config`
 
 /**
  * Plain-text MCQ import: paste raw questions, watch a live parsing preview,
