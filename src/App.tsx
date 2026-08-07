@@ -368,7 +368,7 @@ function ActiveQuiz({ session, quiz }: ActiveQuizProps) {
           }
           className="text-sm font-medium text-slate-500 hover:text-red-600 hover:underline dark:text-slate-400"
         >
-          Quit
+          Exit
         </button>
 
         {isLast ? (
