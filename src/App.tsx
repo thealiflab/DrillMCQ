@@ -1,14 +1,18 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { AIAnswerExplanation } from './components/AIAnswerExplanation'
+import { AISettings } from './components/AISettings'
+import { AIVerificationPanel } from './components/AIVerificationPanel'
 import { QuizImporter } from './components/QuizImporter'
 import { ProgressBar } from './components/ProgressBar'
 import { QuizCard } from './components/QuizCard'
 import { QuizHistory } from './components/QuizHistory'
 import { QuizSetup } from './components/QuizSetup'
 import { RecentResults } from './components/RecentResults'
-import { ResultScreen } from './components/ResultScreen'
+import { ResultScreen, type ResultScreenExtras } from './components/ResultScreen'
 import { SavedQuizList } from './components/SavedQuizList'
 import { SaveQuizPanel } from './components/SaveQuizPanel'
 import { ThemeToggle } from './components/ThemeToggle'
+import { useAI } from './hooks/useAI'
 import { useQuiz } from './hooks/useQuiz'
 import { useQuizHistory } from './hooks/useQuizHistory'
 import { useSavedQuizzes } from './hooks/useSavedQuizzes'
@@ -27,6 +31,9 @@ export default function App() {
   const quiz = useQuiz()
   const library = useSavedQuizzes()
   const history = useQuizHistory()
+  // The AI assistant owns its own state so this component doesn't grow one
+  // branch per workflow; everything below just reads `ai.ready`.
+  const ai = useAI()
 
   // Questions loaded from an import (or picked from the library) but not yet
   // started — the setup phase.
@@ -38,6 +45,7 @@ export default function App() {
   const [historyQuizId, setHistoryQuizId] = useState<string | null>(null)
   const [reviewAttempt, setReviewAttempt] = useState<QuizAttempt | null>(null)
   const [storageAvailable] = useState(isStorageAvailable)
+  const [aiSettingsOpen, setAiSettingsOpen] = useState(false)
 
   const { session } = quiz
   const { saveProgress, completeProgress, refresh: refreshLibrary } = library
@@ -71,7 +79,9 @@ export default function App() {
   const clearSetup = useCallback(() => {
     setPendingQuestions(null)
     setPendingQuiz(null)
-  }, [])
+    // Verdicts belong to the bank that just went away.
+    ai.clearVerifications()
+  }, [ai])
 
   const handleResume = useCallback(
     (saved: SavedQuiz) => {
@@ -119,6 +129,28 @@ export default function App() {
 
   const historyQuiz = historyQuizId ? library.quizzes.find((q) => q.id === historyQuizId) ?? null : null
 
+  /**
+   * The optional AI panel under each answer-review block. Passed to both
+   * `ResultScreen` call sites, so reviewing a stored attempt gets it too.
+   * Renders nothing when the assistant is off.
+   */
+  const renderQuestionExtras = useCallback(
+    (question: QuizQuestion, selected: string[] | undefined) => (
+      <AIAnswerExplanation
+        question={question}
+        ready={ai.ready}
+        busy={ai.busy}
+        pending={ai.active?.kind === 'explanation' && ai.active.questionId === question.id}
+        explanation={ai.explanations[question.id]}
+        error={ai.errorQuestionId === question.id ? ai.error : null}
+        onAsk={() => void ai.askAboutQuestion(question, selected)}
+        onCancel={ai.cancel}
+        onDismiss={() => ai.clearExplanation(question.id)}
+      />
+    ),
+    [ai],
+  )
+
   return (
     <div className="min-h-screen">
       <header className="mx-auto flex max-w-3xl items-center justify-between px-4 py-6">
@@ -130,7 +162,25 @@ export default function App() {
             Paste questions. Get a quiz. Entirely in your browser.
           </p>
         </div>
-        <ThemeToggle theme={theme} onToggle={toggleTheme} />
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => setAiSettingsOpen(true)}
+            aria-label="AI assistant settings"
+            title={
+              ai.ready
+                ? `AI on · ${ai.config.provider} · ${ai.requestCount} request(s) this session`
+                : 'AI assistant (off)'
+            }
+            className="relative rounded-full border border-slate-300 bg-white p-2 text-lg leading-none shadow-sm transition-colors hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:hover:bg-slate-800"
+          >
+            🤖
+            {ai.ready && (
+              <span className="absolute -right-0.5 -top-0.5 size-2.5 rounded-full bg-green-500 ring-2 ring-slate-100 dark:ring-slate-950" />
+            )}
+          </button>
+          <ThemeToggle theme={theme} onToggle={toggleTheme} />
+        </div>
       </header>
 
       <main className="mx-auto max-w-3xl px-4 pb-16">
@@ -141,6 +191,7 @@ export default function App() {
             onNewQuiz={() => setReviewAttempt(null)}
             newQuizLabel={historyQuizId !== null ? 'Back to history' : 'Back to My Quizzes'}
             subtitle={`${reviewAttempt.quizName} · ${formatDateTime(reviewAttempt.completedAt)}`}
+            renderQuestionExtras={renderQuestionExtras}
           />
         )}
 
@@ -168,6 +219,7 @@ export default function App() {
             onRetry={quiz.retryQuiz}
             onNewQuiz={quiz.resetQuiz}
             onViewHistory={openHistoryFor}
+            renderQuestionExtras={renderQuestionExtras}
           />
         )}
 
@@ -181,6 +233,11 @@ export default function App() {
               storageAvailable={storageAvailable}
               onSave={(name) => setPendingQuiz(library.saveQuiz(name, pendingQuestions))}
               onUpdate={(quizId) => setPendingQuiz(library.updateQuiz(quizId, pendingQuestions))}
+            />
+            <AIVerificationPanel
+              questions={pendingQuestions}
+              ai={ai}
+              onApply={setPendingQuestions}
             />
             <QuizSetup
               questions={pendingQuestions}
@@ -200,7 +257,7 @@ export default function App() {
         {reviewAttempt === null && historyQuiz === null && session === null && pendingQuestions === null && (
           <div className="space-y-8">
             <div className="animate-fade-slide-in rounded-2xl border border-slate-200 bg-white p-6 shadow-sm sm:p-8 dark:border-slate-800 dark:bg-slate-900">
-              <QuizImporter onLoad={(questions) => openSetup(questions, null)} />
+              <QuizImporter ai={ai} onLoad={(questions) => openSetup(questions, null)} />
             </div>
 
             <SavedQuizList
@@ -220,6 +277,9 @@ export default function App() {
           </div>
         )}
       </main>
+
+      {/* Overlay, so it is reachable from every screen above. */}
+      {aiSettingsOpen && <AISettings ai={ai} onClose={() => setAiSettingsOpen(false)} />}
     </div>
   )
 }
@@ -229,10 +289,17 @@ interface FinishedQuizProps {
   onRetry: () => void
   onNewQuiz: () => void
   onViewHistory: (quizId: string) => void
+  renderQuestionExtras?: ResultScreenExtras
 }
 
 /** Result of the run just submitted, with a jump into its history if saved. */
-function FinishedQuiz({ session, onRetry, onNewQuiz, onViewHistory }: FinishedQuizProps) {
+function FinishedQuiz({
+  session,
+  onRetry,
+  onNewQuiz,
+  onViewHistory,
+  renderQuestionExtras,
+}: FinishedQuizProps) {
   const quizId = session.quizId
   return (
     <ResultScreen
@@ -240,6 +307,7 @@ function FinishedQuiz({ session, onRetry, onNewQuiz, onViewHistory }: FinishedQu
       onRetry={onRetry}
       onNewQuiz={onNewQuiz}
       onViewHistory={quizId === undefined ? undefined : () => onViewHistory(quizId)}
+      renderQuestionExtras={renderQuestionExtras}
     />
   )
 }

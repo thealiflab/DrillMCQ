@@ -1,16 +1,19 @@
 import { useState } from 'react'
+import type { UseAI } from '../hooks/useAI'
 import type { QuizQuestion } from '../types/quiz'
 import { JsonUploader } from './JsonUploader'
 import { TextUploader } from './TextUploader'
 
 interface QuizImporterProps {
   onLoad: (questions: QuizQuestion[]) => void
+  /** Forwarded to the text tab only — JSON input is already structured. */
+  ai?: UseAI
 }
 
 type ImportMode = 'text' | 'json'
 
 /** Tabbed quiz import: plain-text MCQ parsing or raw JSON. */
-export function QuizImporter({ onLoad }: QuizImporterProps) {
+export function QuizImporter({ onLoad, ai }: QuizImporterProps) {
   const [mode, setMode] = useState<ImportMode>('text')
 
   const tabClass = (active: boolean) =>
@@ -47,7 +50,7 @@ export function QuizImporter({ onLoad }: QuizImporterProps) {
         </button>
       </div>
 
-      {mode === 'text' ? <TextUploader onLoad={onLoad} /> : <JsonUploader onLoad={onLoad} />}
+      {mode === 'text' ? <TextUploader onLoad={onLoad} ai={ai} /> : <JsonUploader onLoad={onLoad} />}
     </div>
   )
 }

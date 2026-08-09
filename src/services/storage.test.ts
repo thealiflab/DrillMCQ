@@ -2,19 +2,26 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import type { QuizAttempt, QuizQuestion, QuizSession, SavedQuiz } from '../types/quiz'
 import {
   appendAttempt,
+  clearAIKey,
   clearSession,
+  defaultAIConfig,
   deleteAttempt,
   deleteSavedQuiz,
   fingerprintQuestions,
   isStorageAvailable,
+  loadAIConfig,
+  loadAIKey,
   loadAttempts,
   loadSavedQuizzes,
   loadSession,
   loadTheme,
   patchSavedQuiz,
   resetMigrationForTests,
+  saveAIConfig,
+  saveAIKey,
   saveSession,
   saveTheme,
+  SCHEMA_VERSION,
   upsertSavedQuiz,
 } from './storage'
 import { installBlockedStorage, installMemoryStorage, type MemoryStorage } from '../test/localStorageMock'
@@ -23,6 +30,8 @@ const SAVED_QUIZZES_KEY = 'drillmcq_saved_quizzes.v1'
 const RESULTS_KEY = 'drillmcq_quiz_results.v1'
 const SESSION_KEY = 'drillmcq_active_session.v1'
 const LEGACY_SESSION_KEY = 'drillmcq.session.v1'
+const AI_PREFS_KEY = 'drillmcq_ai_prefs.v1'
+const AI_KEY_KEY = 'drillmcq_ai_key.v1'
 
 const questions: QuizQuestion[] = [
   { id: 1, question: 'Capital of France?', options: ['Paris', 'Rome'], correctAnswers: ['Paris'] },
@@ -356,5 +365,99 @@ describe('migration', () => {
     storage.setItem('drillmcq_schema_version', '2')
     storage.setItem(LEGACY_SESSION_KEY, JSON.stringify(makeSession({ attemptId: 'legacy' })))
     expect(loadSession()).toBeNull()
+  })
+})
+
+describe('AI preferences', () => {
+  it('returns defaults when nothing is stored', () => {
+    const config = loadAIConfig()
+    expect(config.enabled).toBe(false)
+    expect(config.provider).toBe('openai')
+    expect(config.rememberKey).toBe(false)
+    expect(config.maxBatchQuestions).toBe(50)
+  })
+
+  it('round-trips preferences', () => {
+    saveAIConfig({
+      ...defaultAIConfig(),
+      enabled: true,
+      provider: 'anthropic',
+      model: 'claude-sonnet-5',
+      maxBatchQuestions: 25,
+    })
+    const loaded = loadAIConfig()
+    expect(loaded.enabled).toBe(true)
+    expect(loaded.provider).toBe('anthropic')
+    expect(loaded.model).toBe('claude-sonnet-5')
+    expect(loaded.maxBatchQuestions).toBe(25)
+  })
+
+  it('repairs garbage instead of throwing or disabling the app', () => {
+    storage.setItem(
+      AI_PREFS_KEY,
+      JSON.stringify({ enabled: 'yes', provider: 'skynet', model: 42, maxBatchQuestions: -5 }),
+    )
+    const config = loadAIConfig()
+    expect(config.enabled).toBe(false) // only a literal true counts
+    expect(config.provider).toBe('openai') // unknown provider falls back
+    expect(config.model).toBe('') // non-string model dropped
+    expect(config.maxBatchQuestions).toBe(1) // clamped into range
+  })
+
+  it('clamps an absurd batch size', () => {
+    storage.setItem(AI_PREFS_KEY, JSON.stringify({ maxBatchQuestions: 10_000 }))
+    expect(loadAIConfig().maxBatchQuestions).toBe(200)
+  })
+
+  it('survives a non-object entry', () => {
+    storage.setItem(AI_PREFS_KEY, '"nonsense"')
+    expect(() => loadAIConfig()).not.toThrow()
+    expect(loadAIConfig().provider).toBe('openai')
+  })
+
+  it('does not bump the schema version or add a migration step', () => {
+    // The AI keys are new, so there is no older shape to repair.
+    expect(SCHEMA_VERSION).toBe(2)
+    saveAIConfig(defaultAIConfig())
+    expect(storage.getItem('drillmcq_schema_version')).toBe('2')
+  })
+})
+
+describe('AI key', () => {
+  it('is absent until explicitly saved', () => {
+    expect(loadAIKey()).toBeNull()
+  })
+
+  it('round-trips and clears', () => {
+    saveAIKey('sk-test-123')
+    expect(loadAIKey()).toBe('sk-test-123')
+    clearAIKey()
+    expect(loadAIKey()).toBeNull()
+  })
+
+  it('treats an empty stored value as absent', () => {
+    storage.setItem(AI_KEY_KEY, '')
+    expect(loadAIKey()).toBeNull()
+  })
+
+  it('lives in its own key, so clearing it leaves preferences intact', () => {
+    saveAIConfig({ ...defaultAIConfig(), enabled: true, provider: 'gemini' })
+    saveAIKey('sk-test-123')
+    clearAIKey()
+    const config = loadAIConfig()
+    expect(config.enabled).toBe(true)
+    expect(config.provider).toBe('gemini')
+  })
+
+  it('never leaks into the preferences entry', () => {
+    saveAIConfig({ ...defaultAIConfig(), rememberKey: true })
+    saveAIKey('sk-secret-value')
+    expect(storage.getItem(AI_PREFS_KEY)).not.toContain('sk-secret-value')
+  })
+
+  it('does not throw when storage is full', () => {
+    storage.full = true
+    expect(() => saveAIKey('sk-test-123')).not.toThrow()
+    expect(() => saveAIConfig(defaultAIConfig())).not.toThrow()
   })
 })

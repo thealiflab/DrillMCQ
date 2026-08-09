@@ -245,6 +245,8 @@ Everything is stored in your browser's `localStorage` under versioned keys:
 | `drillmcq_saved_quizzes.v1`    | The **My Quizzes** library           |
 | `drillmcq_quiz_results.v1`     | Completed attempts (append-only)     |
 | `drillmcq.theme.v1`            | Dark/light preference                |
+| `drillmcq_ai_prefs.v1`         | AI provider/model preference         |
+| `drillmcq_ai_key.v1`           | Your API key — **only** if you opt in |
 | `drillmcq_schema_version`      | Schema version used for migrations   |
 
 The current schema version is **2**. Upgrading from an older version rewrites
@@ -255,6 +257,44 @@ Nothing is ever sent to a server. Clearing site data clears your quizzes and
 history. Corrupted records are repaired or dropped on load rather than crashing
 the app, and if `localStorage` is full or blocked the app still runs, it just
 stops persisting.
+
+## AI assistant (optional)
+
+DrillMCQ can use an AI model as a second opinion. It is **off by default and the
+app is fully usable without it** — every feature above works untouched.
+
+Because there is no backend, you bring your own API key: open the 🤖 button in
+the header, pick a provider (OpenAI, Google Gemini or Anthropic Claude), choose
+a model, paste your key, and hit **Test connection**.
+
+Once it is on, three optional actions appear:
+
+| Where | Action | What it does |
+| ----- | ------ | ------------ |
+| Paste screen | **✨ Format with AI** | Tidies a messy paste into the format the parser expects. The result goes back into the text box — the normal parser still does the actual importing, and you can undo it. |
+| After importing | **Verify answers** | The AI works out each answer itself and flags where it disagrees with your source. Useful for question banks scraped from the web, which often carry the wrong key. |
+| Results screen | **🤖 Ask AI** | Explains why the correct answer is correct, why yours was wrong, and whether the source answer itself looks mistaken. |
+
+**The AI never changes your quiz on its own.** When it disagrees with a source
+answer you get both side by side and choose: keep the source, use the AI's
+answer, or edit the answers yourself. Nothing runs automatically either — each
+check is a button press, because each one costs you money against your own key.
+
+### About your API key
+
+Your key goes from your browser straight to the provider you picked. DrillMCQ
+has no server, so it never receives or stores it.
+
+- By default the key is kept **in memory only** — reload the page and it is gone.
+- Ticking *"Remember this key on this device"* stores it in this browser in
+  plain text. Convenient on your own machine; avoid it on a shared one.
+- **Clear API key** removes it immediately.
+
+This is browser-side key handling, so be honest with yourself about the
+trade-off: any script running on the page could in principle read it. Prefer a
+key scoped or rate-limited to this use.
+
+AI output can be wrong. Treat it as a second opinion, not the final word.
 
 ## Deployment
 
@@ -305,21 +345,31 @@ src/
  │    ├── SavedQuizCard.tsx    # One saved quiz: status, score, actions
  │    ├── QuizHistory.tsx      # Per-quiz results history
  │    ├── RecentResults.tsx    # Recent attempts across all quizzes
- │    └── ConfirmDialog.tsx    # Accessible confirmation modal
+ │    ├── ConfirmDialog.tsx    # Accessible confirmation modal
+ │    ├── AISettings.tsx       # AI provider / model / key (optional)
+ │    ├── AIAnswerExplanation.tsx  # "Ask AI" panel on the results screen
+ │    └── AIVerificationPanel.tsx  # AI answer check after importing
  ├── hooks/
  │    ├── useQuiz.ts           # Quiz state machine + persistence
  │    ├── useSavedQuizzes.ts   # Saved quiz library state
  │    ├── useQuizHistory.ts    # Completed attempts state
  │    ├── useTheme.ts          # Theme state
- │    └── useTimer.ts          # Refresh-safe countdown
+ │    ├── useTimer.ts          # Refresh-safe countdown
+ │    └── useAI.ts             # AI config, key, and request lifecycle
  ├── services/
- │    └── storage.ts           # localStorage wrapper + migration
+ │    ├── storage.ts           # localStorage wrapper + migration
+ │    └── ai/                  # Provider-agnostic AI transport
+ │         ├── aiService.ts    # Facade: send, normalize, redact keys
+ │         ├── models.ts       # Curated model catalog per provider
+ │         └── providers/      # openai / gemini / anthropic over fetch
  ├── types/
- │    └── quiz.ts              # Shared TypeScript types
+ │    ├── quiz.ts              # Shared TypeScript types
+ │    └── ai.ts                # AI domain types (leaf)
  ├── utils/
  │    ├── quiz.ts              # Validation, shuffling, scoring
  │    ├── library.ts           # Session <-> progress <-> attempt transforms
- │    └── parseMcqText.ts      # Plain-text MCQ parser
+ │    ├── parseMcqText.ts      # Plain-text MCQ parser
+ │    └── ai/                  # Pure prompt builders + response validation
  ├── data/
  │    └── sampleQuiz.json      # Sample quiz dataset
  ├── App.tsx

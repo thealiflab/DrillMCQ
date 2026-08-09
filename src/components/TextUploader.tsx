@@ -1,10 +1,15 @@
 import { useDeferredValue, useMemo, useState } from 'react'
+import type { UseAI } from '../hooks/useAI'
+import type { AIFormattingResult } from '../types/ai'
 import type { QuizQuestion } from '../types/quiz'
+import { AI_FORMATTING_MAX_CHARS } from '../utils/ai/buildAIFormattingPrompt'
 import { parseMcqText } from '../utils/parseMcqText'
 import { isMultiAnswer } from '../utils/quiz'
 
 interface TextUploaderProps {
   onLoad: (questions: QuizQuestion[]) => void
+  /** Present only when the AI assistant is configured. */
+  ai?: UseAI
 }
 
 /** Cap the preview list so pasting a huge bank doesn't bloat the DOM. */
@@ -44,8 +49,12 @@ Which AWS service records configuration changes over time?
  * then generate the quiz. Parsing runs on every keystroke but on deferred
  * input, so typing stays responsive even with large question banks.
  */
-export function TextUploader({ onLoad }: TextUploaderProps) {
+export function TextUploader({ onLoad, ai }: TextUploaderProps) {
   const [text, setText] = useState('')
+
+  // Set while an AI reformat is showing, so it can be undone.
+  const [formatting, setFormatting] = useState<AIFormattingResult | null>(null)
+  const [preAiText, setPreAiText] = useState<string | null>(null)
 
   // Defer parsing so fast typing never blocks the input.
   const deferredText = useDeferredValue(text)
@@ -53,6 +62,35 @@ export function TextUploader({ onLoad }: TextUploaderProps) {
 
   const warnings = parsed.issues.filter((i) => i.severity === 'warning')
   const hasInput = deferredText.trim() !== ''
+
+  const aiReady = ai?.ready === true
+  const formattingNow = ai?.active?.kind === 'formatting'
+  const tooLong = text.length > AI_FORMATTING_MAX_CHARS
+
+  /**
+   * Hand the tidied text back to the textarea rather than to `onLoad`.
+   *
+   * This is the whole point of the workflow: `parseMcqText` stays the only
+   * thing that turns text into questions, so the AI cannot bypass the noise
+   * filter or the answer matching, and the user sees and can edit exactly what
+   * will be parsed.
+   */
+  const runFormat = async () => {
+    if (ai === undefined) return
+    const before = text
+    const result = await ai.formatText(before)
+    if (result === null) return
+    setPreAiText(before)
+    setText(result.text)
+    setFormatting(result)
+  }
+
+  const undoFormat = () => {
+    if (preAiText === null) return
+    setText(preAiText)
+    setPreAiText(null)
+    setFormatting(null)
+  }
 
   return (
     <div className="space-y-4">
@@ -68,6 +106,73 @@ export function TextUploader({ onLoad }: TextUploaderProps) {
         spellCheck={false}
         className="w-full resize-y rounded-xl border border-slate-300 bg-white p-4 font-mono text-sm shadow-sm outline-none transition-colors placeholder:text-slate-400 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/30 dark:border-slate-700 dark:bg-slate-900 dark:placeholder:text-slate-600"
       />
+
+      {/* Optional AI clean-up. Hidden entirely when the assistant is off. */}
+      {aiReady && (
+        <div className="space-y-3">
+          <div className="flex flex-wrap items-center gap-3">
+            <button
+              type="button"
+              onClick={formattingNow ? ai?.cancel : () => void runFormat()}
+              disabled={(ai?.busy === true && !formattingNow) || text.trim() === '' || tooLong}
+              className="rounded-xl border border-indigo-300 bg-indigo-50 px-4 py-2 text-sm font-medium text-indigo-700 shadow-sm transition-colors hover:bg-indigo-100 disabled:cursor-not-allowed disabled:opacity-50 dark:border-indigo-900 dark:bg-indigo-950/50 dark:text-indigo-300 dark:hover:bg-indigo-950"
+            >
+              {formattingNow ? '✨ Formatting… (cancel)' : '✨ Format with AI'}
+            </button>
+            {preAiText !== null && !formattingNow && (
+              <button
+                type="button"
+                onClick={undoFormat}
+                className="text-sm font-medium text-indigo-600 hover:underline dark:text-indigo-400"
+              >
+                ↩ Undo AI formatting
+              </button>
+            )}
+            {tooLong && (
+              <span className="text-xs text-slate-500 dark:text-slate-400">
+                Too long to send ({text.length.toLocaleString()} characters). Paste it in
+                smaller chunks.
+              </span>
+            )}
+          </div>
+
+          {ai?.error != null && (
+            <div
+              role="alert"
+              className="animate-fade-slide-in rounded-xl border border-red-300 bg-red-50 p-4 text-sm text-red-700 dark:border-red-900 dark:bg-red-950/50 dark:text-red-400"
+            >
+              {ai.error.message}
+              {ai.error.retryable && ' You can try again.'}
+            </div>
+          )}
+
+          {formatting !== null && (
+            <div className="animate-fade-slide-in rounded-xl border border-indigo-200 bg-indigo-50 p-4 text-sm dark:border-indigo-900 dark:bg-indigo-950/50">
+              <div className="flex items-start justify-between gap-3">
+                <p className="font-medium">✨ Reformatted by AI — check it before continuing</p>
+                <button
+                  type="button"
+                  onClick={() => setFormatting(null)}
+                  className="text-xs font-medium text-indigo-600 hover:underline dark:text-indigo-400"
+                >
+                  Dismiss
+                </button>
+              </div>
+              {formatting.notes.length > 0 && (
+                <ul className="mt-2 list-disc space-y-1 pl-5 text-xs text-slate-600 dark:text-slate-400">
+                  {formatting.notes.map((note) => (
+                    <li key={note}>{note}</li>
+                  ))}
+                </ul>
+              )}
+              <p className="mt-2 text-xs text-slate-500 dark:text-slate-400">
+                The preview below comes from the normal parser, not the AI — edit the text
+                above if anything looks wrong.
+              </p>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Live parsing summary */}
       {hasInput && (

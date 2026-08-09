@@ -1,7 +1,13 @@
 import { useMemo, useState } from 'react'
-import type { QuizSession } from '../types/quiz'
+import type { QuizQuestion, QuizSession } from '../types/quiz'
 import { computeResult, isAnswerCorrect, isMultiAnswer } from '../utils/quiz'
 import { ExplanationPanel } from './ExplanationPanel'
+
+/** Injected renderer for the optional per-question extras (the AI panel). */
+export type ResultScreenExtras = (
+  question: QuizQuestion,
+  selected: string[] | undefined,
+) => React.ReactNode
 
 interface ResultScreenProps {
   session: QuizSession
@@ -14,6 +20,12 @@ interface ResultScreenProps {
   onViewHistory?: () => void
   /** Optional context line, e.g. the quiz name and attempt date. */
   subtitle?: string
+  /**
+   * Extra content rendered at the bottom of each review block. Used for the
+   * optional AI explanation panel, which is injected rather than imported so
+   * this screen keeps no dependency on the AI layer.
+   */
+  renderQuestionExtras?: ResultScreenExtras
 }
 
 /** Triggers a download of the loaded quiz as a JSON file. */
@@ -37,6 +49,7 @@ export function ResultScreen({
   newQuizLabel = 'New quiz',
   onViewHistory,
   subtitle,
+  renderQuestionExtras,
 }: ResultScreenProps) {
   const result = useMemo(() => computeResult(session), [session])
   const [incorrectOnly, setIncorrectOnly] = useState(false)
@@ -221,6 +234,7 @@ export function ResultScreen({
               </div>
 
               <ExplanationPanel explanation={q.explanation} />
+              {renderQuestionExtras?.(q, answer)}
             </div>
           )
         })}

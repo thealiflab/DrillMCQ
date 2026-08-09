@@ -1,3 +1,4 @@
+import type { AIConfig, AIProviderId } from '../types/ai'
 import type {
   QuizAttempt,
   QuizQuestion,
@@ -22,6 +23,15 @@ const SAVED_QUIZZES_KEY = 'drillmcq_saved_quizzes.v1'
 const RESULTS_KEY = 'drillmcq_quiz_results.v1'
 const SESSION_KEY = 'drillmcq_active_session.v1'
 const THEME_KEY = 'drillmcq.theme.v1'
+
+/**
+ * AI assistant preferences and, only ever on explicit opt-in, the user's API
+ * key. Two keys rather than one object on purpose: clearing the key must never
+ * rewrite preferences, and nothing that dumps the preferences object can carry
+ * the secret along with it.
+ */
+const AI_PREFS_KEY = 'drillmcq_ai_prefs.v1'
+const AI_KEY_KEY = 'drillmcq_ai_key.v1'
 
 /** Pre-library session key. Migrated into SESSION_KEY, then left in place. */
 const LEGACY_SESSION_KEY = 'drillmcq.session.v1'
@@ -295,6 +305,46 @@ function normalizeList<T>(value: unknown, normalize: (item: unknown) => T | null
   return out
 }
 
+const AI_PROVIDER_IDS: AIProviderId[] = ['openai', 'gemini', 'anthropic']
+
+/** Default preferences: AI off, nothing configured, key not persisted. */
+export function defaultAIConfig(): AIConfig {
+  return {
+    enabled: false,
+    provider: 'openai',
+    // Left empty on purpose — the model catalog lives in `services/ai/models`
+    // and storage stays ignorant of it. `useAI` fills in the provider default.
+    model: '',
+    customModel: false,
+    rememberKey: false,
+    maxBatchQuestions: 50,
+  }
+}
+
+/**
+ * Preferences are cosmetic on load, like `QuizSettings`: repair rather than
+ * reject, so a hand-edited or half-written entry can never disable the app.
+ */
+function normalizeAIConfig(value: unknown): AIConfig {
+  const raw = isRecord(value) ? value : {}
+  const defaults = defaultAIConfig()
+  const provider =
+    typeof raw.provider === 'string' && (AI_PROVIDER_IDS as string[]).includes(raw.provider)
+      ? (raw.provider as AIProviderId)
+      : defaults.provider
+  return {
+    enabled: raw.enabled === true,
+    provider,
+    model: typeof raw.model === 'string' ? raw.model : defaults.model,
+    customModel: raw.customModel === true,
+    rememberKey: raw.rememberKey === true,
+    maxBatchQuestions:
+      typeof raw.maxBatchQuestions === 'number' && Number.isFinite(raw.maxBatchQuestions)
+        ? Math.min(200, Math.max(1, Math.round(raw.maxBatchQuestions)))
+        : defaults.maxBatchQuestions,
+  }
+}
+
 // ---------------------------------------------------------------------------
 // Ids and fingerprints
 // ---------------------------------------------------------------------------
@@ -491,6 +541,44 @@ export function saveTheme(theme: Theme): void {
 export function loadTheme(): Theme | null {
   const raw = readRaw(THEME_KEY)
   return raw === 'light' || raw === 'dark' ? raw : null
+}
+
+// ---------------------------------------------------------------------------
+// AI assistant preferences and key
+// ---------------------------------------------------------------------------
+
+/*
+ * These keys are new, so there is no older shape to repair and `migrate` needs
+ * no extra step — `SCHEMA_VERSION` stays where it is. A missing entry simply
+ * reads back as the defaults.
+ */
+
+export function loadAIConfig(): AIConfig {
+  migrate()
+  return readJson(AI_PREFS_KEY, normalizeAIConfig) ?? defaultAIConfig()
+}
+
+export function saveAIConfig(config: AIConfig): void {
+  migrate()
+  writeJson(AI_PREFS_KEY, config)
+}
+
+/**
+ * The API key is stored separately and only when the user ticks "remember on
+ * this device". Callers must gate on `AIConfig.rememberKey` — storage does not
+ * second-guess them, but nothing else in the app may call `saveAIKey`.
+ */
+export function loadAIKey(): string | null {
+  const raw = readRaw(AI_KEY_KEY)
+  return raw !== null && raw !== '' ? raw : null
+}
+
+export function saveAIKey(key: string): void {
+  writeRaw(AI_KEY_KEY, key)
+}
+
+export function clearAIKey(): void {
+  removeRaw(AI_KEY_KEY)
 }
 
 /** Test helper: forget that migration already ran on this page. */
