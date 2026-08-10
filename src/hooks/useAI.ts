@@ -34,6 +34,7 @@ import {
   AI_VERIFICATION_SYSTEM,
   buildAIVerificationPrompt,
 } from '../utils/ai/buildAIVerificationPrompt'
+import { chunkRawText } from '../utils/ai/chunkRawText'
 import {
   validateExplanationResponse,
   validateFormattingResponse,
@@ -59,6 +60,30 @@ const MAX_TOKENS = {
   verification: 8000,
   formatting: 16000,
 } as const
+
+/**
+ * Per-call HTTP ceilings. Formatting gets the longest one because it rewrites
+ * every word it is given, so its response is the slowest to arrive even after
+ * chunking.
+ */
+const TIMEOUT_MS = {
+  explanation: 60_000,
+  verification: 120_000,
+  formatting: 180_000,
+} as const
+
+/**
+ * Characters of raw text per formatting request.
+ *
+ * Sized well under `MAX_TOKENS.formatting`: the model has to reproduce its
+ * input, so a chunk of this size leaves plenty of room for the reformatted copy
+ * plus notes. Sending a whole question bank in one call is what used to time
+ * out.
+ */
+const FORMATTING_CHUNK_CHARS = 8_000
+
+/** Cap on notes kept across a multi-chunk formatting run. */
+const MAX_FORMATTING_NOTES = 20
 
 export interface UseAIRequestState {
   kind: AIRequestKind
@@ -326,6 +351,7 @@ export function useAI() {
             schema: AI_EXPLANATION_SCHEMA as unknown as Record<string, unknown>,
             schemaName: 'mcq_explanation',
             maxOutputTokens: MAX_TOKENS.explanation,
+            timeoutMs: TIMEOUT_MS.explanation,
           },
           (data) => validateExplanationResponse(data, question),
           controller,
@@ -375,6 +401,7 @@ export function useAI() {
               schema: AI_VERIFICATION_SCHEMA as unknown as Record<string, unknown>,
               schemaName: 'mcq_verification',
               maxOutputTokens: MAX_TOKENS.verification,
+              timeoutMs: TIMEOUT_MS.verification,
             },
             (data) => validateVerificationResponse(data, batch),
             controller,
@@ -414,21 +441,62 @@ export function useAI() {
 
   const formatText = useCallback(
     async (rawText: string): Promise<AIFormattingResult | null> => {
-      return withRequest(async (controller) =>
-        run(
-          { kind: 'formatting', questionId: null },
-          {
-            kind: 'formatting',
-            system: AI_FORMATTING_SYSTEM,
-            user: buildAIFormattingPrompt(rawText),
-            schema: AI_FORMATTING_SCHEMA as unknown as Record<string, unknown>,
-            schemaName: 'mcq_formatting',
-            maxOutputTokens: MAX_TOKENS.formatting,
-          },
-          validateFormattingResponse,
-          controller,
-        ),
-      )
+      const chunks = chunkRawText(rawText, FORMATTING_CHUNK_CHARS)
+      if (chunks.length === 0) return null
+
+      return withRequest(async (controller) => {
+        const parts: string[] = []
+        const notes: string[] = []
+        // Index of the chunk we never got through, or -1 if the run completed.
+        let stoppedAt = -1
+
+        for (let i = 0; i < chunks.length; i++) {
+          if (controller.signal.aborted) {
+            stoppedAt = i
+            break
+          }
+
+          const result = await run(
+            { kind: 'formatting', questionId: null, done: i, total: chunks.length },
+            {
+              kind: 'formatting',
+              system: AI_FORMATTING_SYSTEM,
+              user: buildAIFormattingPrompt(chunks[i]),
+              schema: AI_FORMATTING_SCHEMA as unknown as Record<string, unknown>,
+              schemaName: 'mcq_formatting',
+              maxOutputTokens: MAX_TOKENS.formatting,
+              timeoutMs: TIMEOUT_MS.formatting,
+            },
+            validateFormattingResponse,
+            controller,
+          )
+
+          if (result === null) {
+            stoppedAt = i
+            break
+          }
+
+          parts.push(result.text)
+          for (const note of result.notes) {
+            if (notes.length < MAX_FORMATTING_NOTES && !notes.includes(note)) notes.push(note)
+          }
+        }
+
+        if (parts.length === 0) return null
+
+        // A part-way failure must never eat the user's paste: hand back what was
+        // formatted followed by the rest exactly as it came in. The error is
+        // already in state, so the panel explains itself.
+        if (stoppedAt !== -1) {
+          parts.push(...chunks.slice(stoppedAt))
+          notes.unshift(
+            `Only the first ${stoppedAt} of ${chunks.length} parts were reformatted — ` +
+              'the rest is unchanged from what you pasted.',
+          )
+        }
+
+        return { text: parts.join('\n\n'), notes }
+      })
     },
     [run, withRequest],
   )

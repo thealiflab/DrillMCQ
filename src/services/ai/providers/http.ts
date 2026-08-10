@@ -7,8 +7,13 @@ import type { AIError, AIErrorKind } from '../types'
  * request would print the user's API key.
  */
 
-/** Hard ceiling on a single provider call. */
-const REQUEST_TIMEOUT_MS = 60_000
+/**
+ * Default ceiling on a single provider call. Callers that ask for a lot of
+ * output (reformatting a whole paste) pass a longer `timeoutMs` — 60s is sized
+ * for a short structured answer, not for a request that has to rewrite
+ * thousands of words.
+ */
+const DEFAULT_TIMEOUT_MS = 60_000
 
 const RETRYABLE: AIErrorKind[] = ['rate-limit', 'server', 'network', 'timeout', 'malformed']
 
@@ -39,6 +44,8 @@ export interface HttpJsonInit {
   headers: Record<string, string>
   body: unknown
   signal?: AbortSignal
+  /** Overrides `DEFAULT_TIMEOUT_MS` for calls that legitimately take longer. */
+  timeoutMs?: number
   /**
    * Turns an error body into a user-facing message. Providers nest their error
    * text differently, so each supplies its own reader.
@@ -57,7 +64,7 @@ export async function postJson(init: HttpJsonInit): Promise<unknown> {
   const timer = setTimeout(() => {
     timedOut = true
     controller.abort()
-  }, REQUEST_TIMEOUT_MS)
+  }, init.timeoutMs ?? DEFAULT_TIMEOUT_MS)
 
   // Forward the caller's cancellation onto our own controller so a user abort
   // and a timeout can still be told apart.
@@ -97,7 +104,12 @@ export async function postJson(init: HttpJsonInit): Promise<unknown> {
     if (isAIError(cause)) throw cause
 
     if (cause instanceof Error && cause.name === 'AbortError') {
-      if (timedOut) throw aiError('timeout', 'The provider took too long to respond.')
+      if (timedOut) {
+        throw aiError(
+          'timeout',
+          'The provider took too long to respond. A smaller paste, or a faster model, will usually go through.',
+        )
+      }
       throw aiError('aborted', 'Request cancelled.')
     }
 

@@ -13,8 +13,12 @@ function describeError(payload: unknown, status: number): string | null {
 export function createOpenAIProvider(model: string, apiKey: string): AIProvider {
   const headers = { Authorization: `Bearer ${apiKey}` }
 
-  async function call(body: Record<string, unknown>, signal?: AbortSignal): Promise<unknown> {
-    return postJson({ url: ENDPOINT, headers, body, signal, describeError })
+  async function call(
+    body: Record<string, unknown>,
+    signal?: AbortSignal,
+    timeoutMs?: number,
+  ): Promise<unknown> {
+    return postJson({ url: ENDPOINT, headers, body, signal, timeoutMs, describeError })
   }
 
   return {
@@ -37,6 +41,7 @@ export function createOpenAIProvider(model: string, apiKey: string): AIProvider 
           },
         },
         request.signal,
+        request.timeoutMs,
       )
 
       const content = readPath(payload, ['choices', 0, 'message', 'content'])

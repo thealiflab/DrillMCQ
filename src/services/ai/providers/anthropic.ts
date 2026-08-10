@@ -26,12 +26,17 @@ export function createAnthropicProvider(model: string, apiKey: string): AIProvid
     [BROWSER_ACCESS_HEADER]: 'true',
   }
 
-  async function call(body: Record<string, unknown>, signal?: AbortSignal): Promise<unknown> {
+  async function call(
+    body: Record<string, unknown>,
+    signal?: AbortSignal,
+    timeoutMs?: number,
+  ): Promise<unknown> {
     return postJson({
       url: ENDPOINT,
       headers,
       body,
       signal,
+      timeoutMs,
       describeError,
       networkErrorKind: 'cors',
       networkErrorMessage:
@@ -76,6 +81,7 @@ export function createAnthropicProvider(model: string, apiKey: string): AIProvid
           output_config: { format: { type: 'json_schema', schema: request.schema } },
         },
         request.signal,
+        request.timeoutMs,
       )
 
       const stopReason = readPath(payload, ['stop_reason'])

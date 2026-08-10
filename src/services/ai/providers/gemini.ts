@@ -37,8 +37,12 @@ export function createGeminiProvider(model: string, apiKey: string): AIProvider 
   const headers = { 'x-goog-api-key': apiKey }
   const url = `${BASE}/${encodeURIComponent(model)}:generateContent`
 
-  async function call(body: Record<string, unknown>, signal?: AbortSignal): Promise<unknown> {
-    return postJson({ url, headers, body, signal, describeError })
+  async function call(
+    body: Record<string, unknown>,
+    signal?: AbortSignal,
+    timeoutMs?: number,
+  ): Promise<unknown> {
+    return postJson({ url, headers, body, signal, timeoutMs, describeError })
   }
 
   return {
@@ -56,6 +60,7 @@ export function createGeminiProvider(model: string, apiKey: string): AIProvider 
           },
         },
         request.signal,
+        request.timeoutMs,
       )
 
       const blockReason = readPath(payload, ['promptFeedback', 'blockReason'])

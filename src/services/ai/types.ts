@@ -46,6 +46,8 @@ export interface AIRequest {
   /** Schema name — OpenAI needs one; the others ignore it. */
   schemaName: string
   maxOutputTokens: number
+  /** Per-call HTTP ceiling. Omitted, the transport default applies. */
+  timeoutMs?: number
   signal?: AbortSignal
 }
 

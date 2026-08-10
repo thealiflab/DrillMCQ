@@ -67,6 +67,12 @@ export function TextUploader({ onLoad, ai }: TextUploaderProps) {
   const formattingNow = ai?.active?.kind === 'formatting'
   const tooLong = text.length > AI_FORMATTING_MAX_CHARS
 
+  // A long paste is reformatted in several requests, so show where it is up to.
+  const formatProgress =
+    formattingNow && ai?.active?.total !== undefined && ai.active.total > 1
+      ? ` part ${(ai.active.done ?? 0) + 1} of ${ai.active.total}`
+      : ''
+
   /**
    * Hand the tidied text back to the textarea rather than to `onLoad`.
    *
@@ -117,7 +123,7 @@ export function TextUploader({ onLoad, ai }: TextUploaderProps) {
               disabled={(ai?.busy === true && !formattingNow) || text.trim() === '' || tooLong}
               className="rounded-xl border border-indigo-300 bg-indigo-50 px-4 py-2 text-sm font-medium text-indigo-700 shadow-sm transition-colors hover:bg-indigo-100 disabled:cursor-not-allowed disabled:opacity-50 dark:border-indigo-900 dark:bg-indigo-950/50 dark:text-indigo-300 dark:hover:bg-indigo-950"
             >
-              {formattingNow ? '✨ Formatting… (cancel)' : '✨ Format with AI'}
+              {formattingNow ? `✨ Formatting${formatProgress}… (cancel)` : '✨ Format with AI'}
             </button>
             {preAiText !== null && !formattingNow && (
               <button
