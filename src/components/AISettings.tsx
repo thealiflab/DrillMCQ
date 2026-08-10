@@ -2,6 +2,7 @@ import { useEffect, useId, useRef, useState } from 'react'
 import type { UseAI } from '../hooks/useAI'
 import { isCatalogModel, PROVIDER_LIST, PROVIDERS } from '../services/ai/models'
 import { AI_KEY_PRIVACY_NOTE } from './aiDisclaimer'
+import { Spinner } from './Spinner'
 
 interface AISettingsProps {
   ai: UseAI
@@ -238,8 +239,9 @@ export function AISettings({ ai, onClose }: AISettingsProps) {
               type="button"
               onClick={() => void ai.testConnection()}
               disabled={ai.busy || ai.apiKey.trim() === ''}
-              className="rounded-xl bg-indigo-600 px-4 py-2 text-sm font-medium text-white shadow-sm transition-colors hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-50"
+              className="inline-flex items-center gap-2 rounded-xl bg-indigo-600 px-4 py-2 text-sm font-medium text-white shadow-sm transition-colors hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-50"
             >
+              {ai.connectionStatus === 'testing' && <Spinner label={null} />}
               {ai.connectionStatus === 'testing' ? 'Testing…' : 'Test connection'}
             </button>
             {ai.connectionStatus === 'ok' && (

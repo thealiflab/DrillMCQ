@@ -1,10 +1,12 @@
 import { useDeferredValue, useMemo, useState } from 'react'
+import { useBusyAction } from '../hooks/useBusyAction'
 import type { UseAI } from '../hooks/useAI'
 import type { AIFormattingResult } from '../types/ai'
 import type { QuizQuestion } from '../types/quiz'
 import { AI_FORMATTING_MAX_CHARS } from '../utils/ai/buildAIFormattingPrompt'
 import { parseMcqText } from '../utils/parseMcqText'
 import { isMultiAnswer } from '../utils/quiz'
+import { Spinner } from './Spinner'
 
 interface TextUploaderProps {
   onLoad: (questions: QuizQuestion[]) => void
@@ -51,6 +53,10 @@ Which AWS service records configuration changes over time?
  */
 export function TextUploader({ onLoad, ai }: TextUploaderProps) {
   const [text, setText] = useState('')
+
+  // Building the quiz is synchronous but not instant on a big bank, so the
+  // click yields a frame to the browser first and shows a spinner.
+  const [generating, generate] = useBusyAction()
 
   // Set while an AI reformat is showing, so it can be undone.
   const [formatting, setFormatting] = useState<AIFormattingResult | null>(null)
@@ -121,9 +127,16 @@ export function TextUploader({ onLoad, ai }: TextUploaderProps) {
               type="button"
               onClick={formattingNow ? ai?.cancel : () => void runFormat()}
               disabled={(ai?.busy === true && !formattingNow) || text.trim() === '' || tooLong}
-              className="rounded-xl border border-indigo-300 bg-indigo-50 px-4 py-2 text-sm font-medium text-indigo-700 shadow-sm transition-colors hover:bg-indigo-100 disabled:cursor-not-allowed disabled:opacity-50 dark:border-indigo-900 dark:bg-indigo-950/50 dark:text-indigo-300 dark:hover:bg-indigo-950"
+              className="inline-flex items-center gap-2 rounded-xl border border-indigo-300 bg-indigo-50 px-4 py-2 text-sm font-medium text-indigo-700 shadow-sm transition-colors hover:bg-indigo-100 disabled:cursor-not-allowed disabled:opacity-50 dark:border-indigo-900 dark:bg-indigo-950/50 dark:text-indigo-300 dark:hover:bg-indigo-950"
             >
-              {formattingNow ? `✨ Formatting${formatProgress}… (cancel)` : '✨ Format with AI'}
+              {formattingNow ? (
+                <>
+                  <Spinner label={null} />
+                  Formatting{formatProgress}… (cancel)
+                </>
+              ) : (
+                '✨ Format with AI'
+              )}
             </button>
             {preAiText !== null && !formattingNow && (
               <button
@@ -290,11 +303,14 @@ export function TextUploader({ onLoad, ai }: TextUploaderProps) {
 
       <button
         type="button"
-        onClick={() => onLoad(parsed.questions)}
-        disabled={parsed.questions.length === 0}
-        className="rounded-xl bg-indigo-600 px-5 py-2.5 font-medium text-white shadow-sm transition-colors hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-50"
+        onClick={() => generate(() => onLoad(parsed.questions))}
+        disabled={parsed.questions.length === 0 || generating}
+        className="inline-flex items-center gap-2 rounded-xl bg-indigo-600 px-5 py-2.5 font-medium text-white shadow-sm transition-colors hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-50"
       >
-        Generate quiz{parsed.questions.length > 0 ? ` (${parsed.questions.length})` : ''}
+        {generating && <Spinner label={null} />}
+        {generating
+          ? 'Generating quiz…'
+          : `Generate quiz${parsed.questions.length > 0 ? ` (${parsed.questions.length})` : ''}`}
       </button>
     </div>
   )

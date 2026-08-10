@@ -12,6 +12,7 @@ import {
 import { toggleOption } from '../utils/quiz'
 import { AI_DISCLAIMER } from './aiDisclaimer'
 import { ConfirmDialog } from './ConfirmDialog'
+import { Spinner } from './Spinner'
 
 interface AIVerificationPanelProps {
   questions: QuizQuestion[]
@@ -116,7 +117,8 @@ export function AIVerificationPanel({ questions, ai, onApply }: AIVerificationPa
         </button>
         {running && (
           <>
-            <span className="text-sm text-slate-500 dark:text-slate-400">
+            <span className="inline-flex items-center gap-2 text-sm text-slate-500 dark:text-slate-400">
+              <Spinner label={null} />
               {ai.active?.total !== undefined
                 ? `Checked ${Math.min(ai.active.done ?? 0, ai.active.total)} of ${ai.active.total}…`
                 : 'Checking…'}

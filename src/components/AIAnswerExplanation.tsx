@@ -2,6 +2,7 @@ import type { AIError } from '../services/ai/types'
 import type { AIExplanation } from '../types/ai'
 import type { QuizQuestion } from '../types/quiz'
 import { AI_DISCLAIMER, AI_UNCERTAIN_NOTE } from './aiDisclaimer'
+import { Spinner } from './Spinner'
 
 interface AIAnswerExplanationProps {
   question: QuizQuestion
@@ -47,7 +48,14 @@ export function AIAnswerExplanation({
           disabled={busy && !pending}
           className="inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-medium text-indigo-600 transition-colors hover:bg-indigo-50 disabled:cursor-not-allowed disabled:opacity-50 dark:text-indigo-400 dark:hover:bg-indigo-950/50"
         >
-          {pending ? '🤖 Asking AI… (cancel)' : '🤖 Ask AI'}
+          {pending ? (
+            <>
+              <Spinner label={null} />
+              Asking AI… (cancel)
+            </>
+          ) : (
+            '🤖 Ask AI'
+          )}
         </button>
         {pending && (
           <span className="text-xs text-slate-500 dark:text-slate-400">

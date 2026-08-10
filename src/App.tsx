@@ -11,6 +11,7 @@ import { RecentResults } from './components/RecentResults'
 import { ResultScreen, type ResultScreenExtras } from './components/ResultScreen'
 import { SavedQuizList } from './components/SavedQuizList'
 import { SaveQuizPanel } from './components/SaveQuizPanel'
+import { Spinner } from './components/Spinner'
 import { ThemeToggle } from './components/ThemeToggle'
 import { useAI } from './hooks/useAI'
 import { useQuiz } from './hooks/useQuiz'
@@ -168,15 +169,26 @@ export default function App() {
             onClick={() => setAiSettingsOpen(true)}
             aria-label="AI assistant settings"
             title={
-              ai.ready
-                ? `AI on · ${ai.config.provider} · ${ai.requestCount} request(s) this session`
-                : 'AI assistant (off)'
+              ai.busy
+                ? 'AI is working…'
+                : ai.ready
+                  ? `AI on · ${ai.config.provider} · ${ai.requestCount} request(s) this session`
+                  : 'AI assistant (off)'
             }
             className="relative rounded-full border border-slate-300 bg-white p-2 text-lg leading-none shadow-sm transition-colors hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:hover:bg-slate-800"
           >
             🤖
-            {ai.ready && (
-              <span className="absolute -right-0.5 -top-0.5 size-2.5 rounded-full bg-green-500 ring-2 ring-slate-100 dark:ring-slate-950" />
+            {/* One badge, two states: spinning while a request is in flight,
+                a steady dot when the assistant is merely configured. */}
+            {ai.busy ? (
+              <Spinner
+                label="AI is working"
+                className="absolute -right-1 -top-1 size-3.5 text-indigo-600 dark:text-indigo-400"
+              />
+            ) : (
+              ai.ready && (
+                <span className="absolute -right-0.5 -top-0.5 size-2.5 rounded-full bg-green-500 ring-2 ring-slate-100 dark:ring-slate-950" />
+              )
             )}
           </button>
           <ThemeToggle theme={theme} onToggle={toggleTheme} />

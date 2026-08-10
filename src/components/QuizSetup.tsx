@@ -1,6 +1,8 @@
 import { useState } from 'react'
+import { useBusyAction } from '../hooks/useBusyAction'
 import type { QuizQuestion, QuizSettings } from '../types/quiz'
 import { getCategories } from '../utils/quiz'
+import { Spinner } from './Spinner'
 
 interface QuizSetupProps {
   questions: QuizQuestion[]
@@ -18,6 +20,10 @@ export function QuizSetup({ questions, onStart, onDiscard }: QuizSetupProps) {
   const [shuffleOptions, setShuffleOptions] = useState(false)
   const [timerMinutes, setTimerMinutes] = useState(0)
   const [selectedCategories, setSelectedCategories] = useState<string[]>([])
+
+  // Filtering, shuffling and persisting the session is synchronous; yield a
+  // frame first so the spinner is visible while it happens.
+  const [starting, start] = useBusyAction()
 
   const toggleCategory = (category: string) => {
     setSelectedCategories((prev) =>
@@ -115,12 +121,20 @@ export function QuizSetup({ questions, onStart, onDiscard }: QuizSetupProps) {
         <button
           type="button"
           onClick={() =>
-            onStart({ shuffleQuestions, shuffleOptions, timerMinutes, categories: selectedCategories })
+            start(() =>
+              onStart({
+                shuffleQuestions,
+                shuffleOptions,
+                timerMinutes,
+                categories: selectedCategories,
+              }),
+            )
           }
-          disabled={effectiveCount === 0}
-          className="w-full rounded-xl bg-indigo-600 px-5 py-3 font-semibold text-white shadow-sm transition-colors hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto"
+          disabled={effectiveCount === 0 || starting}
+          className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-indigo-600 px-5 py-3 font-semibold text-white shadow-sm transition-colors hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto"
         >
-          Start quiz ({effectiveCount} questions)
+          {starting && <Spinner label={null} />}
+          {starting ? 'Starting…' : `Start quiz (${effectiveCount} questions)`}
         </button>
       </div>
     </div>

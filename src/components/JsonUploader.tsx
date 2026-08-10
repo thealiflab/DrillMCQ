@@ -1,9 +1,11 @@
 import { useState } from 'react'
+import { useBusyAction } from '../hooks/useBusyAction'
 import type { UseAI } from '../hooks/useAI'
 import type { AIFormattingResult } from '../types/ai'
 import type { QuizQuestion } from '../types/quiz'
 import { AI_JSON_REPAIR_MAX_CHARS } from '../utils/ai/buildAIJsonRepairPrompt'
 import { parseQuizJson } from '../utils/quiz'
+import { Spinner } from './Spinner'
 
 interface JsonUploaderProps {
   onLoad: (questions: QuizQuestion[]) => void
@@ -38,6 +40,10 @@ const SCHEMA_EXAMPLE = `[
 export function JsonUploader({ onLoad, ai }: JsonUploaderProps) {
   const [text, setText] = useState('')
   const [error, setError] = useState<string | null>(null)
+
+  // Parsing and building the quiz is synchronous but not instant on a big
+  // bank, so the click yields a frame to the browser first.
+  const [loading, load] = useBusyAction()
 
   // Set while an AI repair is showing, so it can be undone.
   const [repair, setRepair] = useState<AIFormattingResult | null>(null)
@@ -126,9 +132,16 @@ export function JsonUploader({ onLoad, ai }: JsonUploaderProps) {
               type="button"
               onClick={repairingNow ? ai?.cancel : () => void runRepair()}
               disabled={(ai?.busy === true && !repairingNow) || text.trim() === '' || tooLong}
-              className="rounded-xl border border-indigo-300 bg-indigo-50 px-4 py-2 text-sm font-medium text-indigo-700 shadow-sm transition-colors hover:bg-indigo-100 disabled:cursor-not-allowed disabled:opacity-50 dark:border-indigo-900 dark:bg-indigo-950/50 dark:text-indigo-300 dark:hover:bg-indigo-950"
+              className="inline-flex items-center gap-2 rounded-xl border border-indigo-300 bg-indigo-50 px-4 py-2 text-sm font-medium text-indigo-700 shadow-sm transition-colors hover:bg-indigo-100 disabled:cursor-not-allowed disabled:opacity-50 dark:border-indigo-900 dark:bg-indigo-950/50 dark:text-indigo-300 dark:hover:bg-indigo-950"
             >
-              {repairingNow ? `✨ Fixing${repairProgress}… (cancel)` : '✨ Fix JSON with AI'}
+              {repairingNow ? (
+                <>
+                  <Spinner label={null} />
+                  Fixing{repairProgress}… (cancel)
+                </>
+              ) : (
+                '✨ Fix JSON with AI'
+              )}
             </button>
             {preAiText !== null && !repairingNow && (
               <button
@@ -199,11 +212,12 @@ export function JsonUploader({ onLoad, ai }: JsonUploaderProps) {
       <div className="flex flex-wrap items-center gap-3">
         <button
           type="button"
-          onClick={() => tryLoad(text)}
-          disabled={text.trim() === ''}
-          className="rounded-xl bg-indigo-600 px-5 py-2.5 font-medium text-white shadow-sm transition-colors hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-50"
+          onClick={() => load(() => tryLoad(text))}
+          disabled={text.trim() === '' || loading}
+          className="inline-flex items-center gap-2 rounded-xl bg-indigo-600 px-5 py-2.5 font-medium text-white shadow-sm transition-colors hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-50"
         >
-          Load quiz
+          {loading && <Spinner label={null} />}
+          {loading ? 'Loading quiz…' : 'Load quiz'}
         </button>
         <button
           type="button"
