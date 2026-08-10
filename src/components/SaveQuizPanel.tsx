@@ -45,7 +45,7 @@ export function SaveQuizPanel({
         role="status"
         className="animate-fade-slide-in rounded-2xl border border-green-300 bg-green-50 p-4 text-sm text-green-800 dark:border-green-900 dark:bg-green-950/50 dark:text-green-400"
       >
-        <strong>{savedName}</strong> is saved in My Quizzes. Configure and start it below.
+        <strong>{savedName}</strong> is saved in your Quiz Library. Configure and start it below.
       </div>
     )
   }
@@ -64,7 +64,7 @@ export function SaveQuizPanel({
 
   return (
     <div className="animate-fade-slide-in rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
-      <h2 className="text-base font-semibold">Save to My Quizzes</h2>
+      <h2 className="text-base font-semibold">Save to your Quiz Library</h2>
       <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">
         Keep these {questionCount} questions in this browser so you can retake them later.
       </p>

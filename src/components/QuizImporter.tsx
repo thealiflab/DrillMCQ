@@ -17,7 +17,7 @@ export function QuizImporter({ onLoad, ai }: QuizImporterProps) {
   const [mode, setMode] = useState<ImportMode>('text')
 
   const tabClass = (active: boolean) =>
-    `rounded-lg px-4 py-2 text-sm font-medium transition-colors ${
+    `min-h-11 rounded-lg px-4 py-2 text-sm font-medium transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-500 ${
       active
         ? 'bg-white text-indigo-700 shadow-sm dark:bg-slate-700 dark:text-indigo-300'
         : 'text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-200'
@@ -25,9 +25,18 @@ export function QuizImporter({ onLoad, ai }: QuizImporterProps) {
 
   return (
     <div className="space-y-5">
+      <div>
+        <p className="text-sm font-medium text-slate-700 dark:text-slate-300">
+          Paste your MCQ questions below
+        </p>
+        <p className="text-sm text-slate-500 dark:text-slate-400">
+          Nothing is uploaded — parsing happens in this browser.
+        </p>
+      </div>
+
       <div
         role="tablist"
-        aria-label="Import mode"
+        aria-label="Import format"
         className="inline-flex gap-1 rounded-xl bg-slate-100 p-1 dark:bg-slate-800"
       >
         <button

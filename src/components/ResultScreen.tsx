@@ -1,6 +1,7 @@
-import { useMemo, useState } from 'react'
+import { useMemo, useRef, useState } from 'react'
 import type { QuizQuestion, QuizSession } from '../types/quiz'
 import { computeResult, isAnswerCorrect, isMultiAnswer } from '../utils/quiz'
+import { ConfirmDialog } from './ConfirmDialog'
 import { ExplanationPanel } from './ExplanationPanel'
 
 /** Injected renderer for the optional per-question extras (the AI panel). */
@@ -14,10 +15,13 @@ interface ResultScreenProps {
   /** Omitted when reviewing a stored attempt, where there's nothing to retry. */
   onRetry?: () => void
   onNewQuiz: () => void
-  /** Label for the secondary action — "Back to history" in review mode. */
+  /** Label for the "leave this screen" action — "Back to history" in review mode. */
   newQuizLabel?: string
   /** Shown when the attempt belongs to a saved quiz. */
   onViewHistory?: () => void
+  /** Straight to the Quiz Library. Omitted in review mode, which has its own back. */
+  onLibrary?: () => void
+  onHome?: () => void
   /** Optional context line, e.g. the quiz name and attempt date. */
   subtitle?: string
   /**
@@ -46,14 +50,18 @@ export function ResultScreen({
   session,
   onRetry,
   onNewQuiz,
-  newQuizLabel = 'New quiz',
+  newQuizLabel = 'Create Quiz',
   onViewHistory,
+  onLibrary,
+  onHome,
   subtitle,
   renderQuestionExtras,
 }: ResultScreenProps) {
   const result = useMemo(() => computeResult(session), [session])
   const [incorrectOnly, setIncorrectOnly] = useState(false)
   const [search, setSearch] = useState('')
+  const [confirmRetry, setConfirmRetry] = useState(false)
+  const reviewRef = useRef<HTMLDivElement>(null)
 
   const reviewQuestions = session.questions.filter((q) => {
     if (incorrectOnly && isAnswerCorrect(q, session.answers[q.id])) return false
@@ -67,14 +75,20 @@ export function ResultScreen({
   const grade =
     result.percentage >= 80 ? '🎉 Excellent!' : result.percentage >= 60 ? '👍 Good job!' : '📚 Keep practicing!'
 
+  const secondary =
+    'min-h-11 rounded-xl border border-slate-300 bg-white px-5 py-2.5 font-medium shadow-sm transition-colors hover:bg-slate-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-500 dark:border-slate-700 dark:bg-slate-900 dark:hover:bg-slate-800'
+
   return (
     <div className="animate-fade-slide-in space-y-6">
       {/* Score summary card */}
       <div className="rounded-2xl border border-slate-200 bg-white p-6 text-center shadow-sm sm:p-8 dark:border-slate-800 dark:bg-slate-900">
+        <h2 className="text-xl font-bold tracking-tight">
+          {onRetry === undefined ? 'Attempt review' : 'Quiz complete'}
+        </h2>
         {subtitle !== undefined && (
-          <p className="mb-1 text-sm text-slate-500 dark:text-slate-400">{subtitle}</p>
+          <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">{subtitle}</p>
         )}
-        <p className="text-lg font-medium text-slate-600 dark:text-slate-400">{grade}</p>
+        <p className="mt-2 text-lg font-medium text-slate-600 dark:text-slate-400">{grade}</p>
         <p className="my-2 text-5xl font-bold text-indigo-600 dark:text-indigo-400">
           {result.percentage}%
         </p>
@@ -97,44 +111,74 @@ export function ResultScreen({
           </div>
         </dl>
 
-        <div className="mt-6 flex flex-wrap justify-center gap-3">
+        {/* What to do next, in order of likelihood. Full-width and stacked on
+            a phone so every one of them is an easy tap. */}
+        <div className="mt-6 grid gap-3 sm:grid-cols-2">
+          <button
+            type="button"
+            onClick={() => reviewRef.current?.scrollIntoView({ block: 'start' })}
+            className="min-h-11 rounded-xl bg-indigo-600 px-5 py-2.5 font-semibold text-white shadow-sm transition-colors hover:bg-indigo-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-500"
+          >
+            Review answers
+          </button>
           {onRetry !== undefined && (
-            <button
-              type="button"
-              onClick={onRetry}
-              className="rounded-xl bg-indigo-600 px-5 py-2.5 font-medium text-white shadow-sm transition-colors hover:bg-indigo-700"
-            >
+            <button type="button" onClick={() => setConfirmRetry(true)} className={secondary}>
               Retry quiz
             </button>
           )}
-          <button
-            type="button"
-            onClick={onNewQuiz}
-            className="rounded-xl border border-slate-300 bg-white px-5 py-2.5 font-medium shadow-sm transition-colors hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:hover:bg-slate-800"
-          >
+          {onLibrary !== undefined && (
+            <button type="button" onClick={onLibrary} className={secondary}>
+              Back to Quiz Library
+            </button>
+          )}
+          <button type="button" onClick={onNewQuiz} className={secondary}>
             {newQuizLabel}
           </button>
           {onViewHistory !== undefined && (
-            <button
-              type="button"
-              onClick={onViewHistory}
-              className="rounded-xl border border-slate-300 bg-white px-5 py-2.5 font-medium shadow-sm transition-colors hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:hover:bg-slate-800"
-            >
+            <button type="button" onClick={onViewHistory} className={secondary}>
               Results history
             </button>
           )}
-          <button
-            type="button"
-            onClick={() => exportQuiz(session)}
-            className="rounded-xl border border-slate-300 bg-white px-5 py-2.5 font-medium shadow-sm transition-colors hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:hover:bg-slate-800"
-          >
-            Export JSON
-          </button>
+          {onHome !== undefined && (
+            <button type="button" onClick={onHome} className={secondary}>
+              Home
+            </button>
+          )}
         </div>
+
+        {/* A utility, not a next step — kept out of the grid above. */}
+        <button
+          type="button"
+          onClick={() => exportQuiz(session)}
+          className="mt-4 min-h-11 rounded-lg px-3 text-sm font-medium text-slate-500 transition-colors hover:text-indigo-600 dark:text-slate-400 dark:hover:text-indigo-400"
+        >
+          Export questions as JSON
+        </button>
       </div>
 
-      {/* Review controls */}
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+      {confirmRetry && onRetry !== undefined && (
+        <ConfirmDialog
+          title="Start this quiz again from the beginning?"
+          message={
+            <p>
+              You'll answer all {result.total} questions again as a new attempt. This result stays
+              in your Results history.
+            </p>
+          }
+          confirmLabel="Retry quiz"
+          onConfirm={() => {
+            setConfirmRetry(false)
+            onRetry()
+          }}
+          onCancel={() => setConfirmRetry(false)}
+        />
+      )}
+
+      {/* Review controls. The heading is the scroll target for "Review answers". */}
+      <div
+        ref={reviewRef}
+        className="flex scroll-mt-20 flex-col gap-3 sm:flex-row sm:items-center sm:justify-between"
+      >
         <h3 className="text-lg font-semibold">Answer review</h3>
         <div className="flex flex-wrap items-center gap-3">
           <input
