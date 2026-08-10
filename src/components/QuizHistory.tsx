@@ -9,6 +9,8 @@ interface QuizHistoryProps {
   /** Attempts for this quiz, newest first. */
   attempts: QuizAttempt[]
   onBack: () => void
+  /** Names where "back" goes — the library or the results list. */
+  backLabel?: string
   onRetake: () => void
   onReview: (attempt: QuizAttempt) => void
   onDeleteAttempt: (attempt: QuizAttempt) => void
@@ -30,6 +32,7 @@ export function QuizHistory({
   quiz,
   attempts,
   onBack,
+  backLabel = 'Quiz Library',
   onRetake,
   onReview,
   onDeleteAttempt,
@@ -51,19 +54,19 @@ export function QuizHistory({
           <button
             type="button"
             onClick={onBack}
-            className="text-sm font-medium text-slate-500 hover:text-indigo-600 hover:underline dark:text-slate-400"
+            className="-ml-2 min-h-11 rounded-lg px-2 text-sm font-medium text-slate-500 transition-colors hover:text-indigo-600 dark:text-slate-400"
           >
-            ← Back to My Quizzes
+            ← Back to {backLabel}
           </button>
-          <h2 className="mt-1 text-xl font-semibold">{quiz.name}</h2>
-          <p className="text-sm text-slate-500 dark:text-slate-400">Results history</p>
+          <h2 className="mt-1 text-xl font-bold tracking-tight">{quiz.name}</h2>
+          <p className="text-sm text-slate-500 dark:text-slate-400">Results</p>
         </div>
         <button
           type="button"
           onClick={onRetake}
-          className="rounded-xl bg-indigo-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-indigo-700"
+          className="min-h-11 rounded-xl bg-indigo-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-indigo-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-500"
         >
-          Retake quiz
+          Start again
         </button>
       </div>
 
@@ -113,7 +116,7 @@ export function QuizHistory({
                   <button
                     type="button"
                     onClick={() => onReview(attempt)}
-                    className="rounded-xl border border-slate-300 bg-white px-4 py-2 text-sm font-medium shadow-sm transition-colors hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:hover:bg-slate-800"
+                    className="min-h-11 rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm font-medium shadow-sm transition-colors hover:bg-slate-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-500 dark:border-slate-700 dark:bg-slate-900 dark:hover:bg-slate-800"
                   >
                     Review
                   </button>
@@ -121,7 +124,7 @@ export function QuizHistory({
                     type="button"
                     onClick={() => setPendingDelete(attempt)}
                     aria-label={`Delete attempt from ${formatDateTime(attempt.completedAt)}`}
-                    className="rounded-xl px-3 py-2 text-sm font-medium text-slate-500 transition-colors hover:bg-red-50 hover:text-red-600 dark:text-slate-400 dark:hover:bg-red-950/50"
+                    className="min-h-11 rounded-xl px-3 py-2.5 text-sm font-medium text-slate-500 transition-colors hover:bg-red-50 hover:text-red-600 dark:text-slate-400 dark:hover:bg-red-950/50"
                   >
                     Delete
                   </button>

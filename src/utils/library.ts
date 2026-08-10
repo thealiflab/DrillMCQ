@@ -155,6 +155,30 @@ export function computeHistoryStats(attempts: QuizAttempt[]): HistoryStats {
   }
 }
 
+/** How far an unfinished run got — drives every "Continue" affordance. */
+export function progressSummary(progress: SavedQuizProgress): {
+  answered: number
+  total: number
+  percent: number
+} {
+  const total = progress.questions.length
+  const answered = Object.keys(progress.answers).length
+  return { answered, total, percent: total === 0 ? 0 : Math.round((answered / total) * 100) }
+}
+
+/**
+ * The quiz to offer as "Continue" on the home screen: the most recently
+ * touched one with an unfinished run. Null when there is nothing to resume,
+ * which is what hides the section entirely.
+ */
+export function findResumable(quizzes: SavedQuiz[]): SavedQuiz | null {
+  const withProgress = quizzes.filter((q) => q.progress !== undefined)
+  if (withProgress.length === 0) return null
+  return withProgress.reduce((latest, quiz) =>
+    (quiz.progress?.updatedAt ?? 0) > (latest.progress?.updatedAt ?? 0) ? quiz : latest,
+  )
+}
+
 /** What the library card should say about this quiz. */
 export function attemptStatus(quiz: SavedQuiz, attemptCount: number): AttemptStatus {
   if (quiz.progress) return 'in-progress'
@@ -187,5 +211,27 @@ export function formatDateTime(epochMs: number): string {
     year: 'numeric',
     hour: '2-digit',
     minute: '2-digit',
+  })
+}
+
+/** Midnight local time on the day containing `epochMs`. */
+function startOfDay(epochMs: number): number {
+  const date = new Date(epochMs)
+  date.setHours(0, 0, 0, 0)
+  return date.getTime()
+}
+
+/**
+ * "Today" / "Yesterday" / "3 Aug 2026" — the recency phrasing used on cards
+ * and in the results list, where the exact minute is noise.
+ */
+export function formatRelativeDay(epochMs: number, now = Date.now()): string {
+  const days = Math.round((startOfDay(now) - startOfDay(epochMs)) / 86_400_000)
+  if (days === 0) return 'Today'
+  if (days === 1) return 'Yesterday'
+  return new Date(epochMs).toLocaleDateString(undefined, {
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric',
   })
 }

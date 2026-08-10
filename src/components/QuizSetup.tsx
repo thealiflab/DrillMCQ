@@ -39,17 +39,17 @@ export function QuizSetup({ questions, onStart, onDiscard }: QuizSetupProps) {
     <div className="animate-fade-slide-in rounded-2xl border border-slate-200 bg-white p-6 shadow-sm sm:p-8 dark:border-slate-800 dark:bg-slate-900">
       <div className="mb-6 flex items-start justify-between gap-3">
         <div>
-          <h2 className="text-lg font-semibold">Quiz loaded ✅</h2>
+          <h2 className="text-lg font-semibold">Configure your quiz</h2>
           <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">
-            {questions.length} questions ready. Configure your session below.
+            {questions.length} questions ready. Choose how you want to take them.
           </p>
         </div>
         <button
           type="button"
           onClick={onDiscard}
-          className="text-sm font-medium text-slate-500 hover:text-red-600 hover:underline dark:text-slate-400"
+          className="min-h-11 shrink-0 rounded-lg px-2 text-sm font-medium text-slate-500 transition-colors hover:text-red-600 dark:text-slate-400"
         >
-          Discard
+          Start over
         </button>
       </div>
 
@@ -131,7 +131,7 @@ export function QuizSetup({ questions, onStart, onDiscard }: QuizSetupProps) {
             )
           }
           disabled={effectiveCount === 0 || starting}
-          className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-indigo-600 px-5 py-3 font-semibold text-white shadow-sm transition-colors hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto"
+          className="inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-xl bg-indigo-600 px-5 py-3 font-semibold text-white shadow-sm transition-colors hover:bg-indigo-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-500 disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto"
         >
           {starting && <Spinner label={null} />}
           {starting ? 'Starting…' : `Start quiz (${effectiveCount} questions)`}

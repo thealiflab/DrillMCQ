@@ -17,6 +17,9 @@ import {
   computeHistoryStats,
   createSavedQuiz,
   findDuplicate,
+  findResumable,
+  formatRelativeDay,
+  progressSummary,
   progressToSession,
   sessionToAttempt,
   sessionToProgress,
@@ -267,5 +270,47 @@ describe('library helpers', () => {
     expect(
       attemptStatus({ ...quiz, progress: sessionToProgress(buildSession(questions, settings)) }, 3),
     ).toBe('in-progress')
+  })
+
+  it('summarises how far an unfinished run got', () => {
+    const session = buildSession(questions, settings)
+    expect(progressSummary(sessionToProgress(session))).toEqual({
+      answered: 0,
+      total: 3,
+      percent: 0,
+    })
+
+    const partway = { ...session, answers: { 1: ['Paris'], 2: ['4'] } }
+    expect(progressSummary(sessionToProgress(partway))).toEqual({
+      answered: 2,
+      total: 3,
+      percent: 67,
+    })
+  })
+
+  it('reports 0% rather than dividing by zero on an empty bank', () => {
+    const empty = buildSession([], settings)
+    expect(progressSummary(sessionToProgress(empty))).toEqual({ answered: 0, total: 0, percent: 0 })
+  })
+
+  it('picks the most recently touched resumable quiz, or none', () => {
+    const base = createSavedQuiz('Geography', questions)
+    const progress = sessionToProgress(buildSession(questions, settings))
+    const older: SavedQuiz = { ...base, id: 'q_old', progress: { ...progress, updatedAt: 1_000 } }
+    const newer: SavedQuiz = { ...base, id: 'q_new', progress: { ...progress, updatedAt: 2_000 } }
+    const untouched: SavedQuiz = { ...base, id: 'q_none' }
+
+    expect(findResumable([older, newer, untouched])?.id).toBe('q_new')
+    expect(findResumable([newer, older])?.id).toBe('q_new')
+    expect(findResumable([untouched])).toBeNull()
+    expect(findResumable([])).toBeNull()
+  })
+
+  it('phrases recency relative to today', () => {
+    const now = new Date(2026, 7, 10, 9, 0).getTime()
+    expect(formatRelativeDay(new Date(2026, 7, 10, 23, 30).getTime(), now)).toBe('Today')
+    expect(formatRelativeDay(new Date(2026, 7, 9, 0, 5).getTime(), now)).toBe('Yesterday')
+    // Two days back falls through to the absolute date.
+    expect(formatRelativeDay(new Date(2026, 7, 8).getTime(), now)).not.toMatch(/Today|Yesterday/)
   })
 })

@@ -1,7 +1,8 @@
-import { useEffect, useId, useRef, useState } from 'react'
+import { useId, useRef, useState } from 'react'
 import type { UseAI } from '../hooks/useAI'
 import { isCatalogModel, PROVIDER_LIST, PROVIDERS } from '../services/ai/models'
 import { AI_KEY_PRIVACY_NOTE } from './aiDisclaimer'
+import { Modal } from './Modal'
 import { Spinner } from './Spinner'
 
 interface AISettingsProps {
@@ -15,9 +16,8 @@ const CUSTOM_MODEL = '__custom__'
  * Settings for the optional AI assistant, as a modal so it is reachable from
  * every screen without adding a branch to `App`'s render precedence.
  *
- * Mirrors `ConfirmDialog`'s mechanics — backdrop click, capture-phase Escape,
- * Tab trap — but focuses the provider select rather than a cancel button,
- * since nothing here is destructive.
+ * Uses the shared `Modal` shell but focuses the provider select rather than
+ * the close button, since nothing here is destructive.
  */
 export function AISettings({ ai, onClose }: AISettingsProps) {
   const titleId = useId()
@@ -27,57 +27,20 @@ export function AISettings({ ai, onClose }: AISettingsProps) {
   const keyId = useId()
   const rememberId = useId()
 
-  const panelRef = useRef<HTMLDivElement>(null)
   const providerRef = useRef<HTMLSelectElement>(null)
   const [showKey, setShowKey] = useState(false)
 
   const meta = PROVIDERS[ai.config.provider]
   const usingCustomModel = ai.config.customModel || !isCatalogModel(ai.config.provider, ai.config.model)
 
-  useEffect(() => {
-    providerRef.current?.focus()
-  }, [])
-
-  useEffect(() => {
-    const handler = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') {
-        event.stopPropagation()
-        onClose()
-        return
-      }
-      if (event.key !== 'Tab') return
-      const focusable = panelRef.current?.querySelectorAll<HTMLElement>(
-        'button, [href], input, select',
-      )
-      if (!focusable || focusable.length === 0) return
-      const first = focusable[0]
-      const last = focusable[focusable.length - 1]
-      if (event.shiftKey && document.activeElement === first) {
-        event.preventDefault()
-        last.focus()
-      } else if (!event.shiftKey && document.activeElement === last) {
-        event.preventDefault()
-        first.focus()
-      }
-    }
-    window.addEventListener('keydown', handler, true)
-    return () => window.removeEventListener('keydown', handler, true)
-  }, [onClose])
-
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 p-4 backdrop-blur-sm"
-      onClick={onClose}
+    <Modal
+      labelledBy={titleId}
+      onClose={onClose}
+      initialFocusRef={providerRef}
+      panelClassName="max-w-lg"
     >
-      <div
-        ref={panelRef}
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby={titleId}
-        onClick={(e) => e.stopPropagation()}
-        className="animate-fade-slide-in max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-2xl border border-slate-200 bg-white p-6 shadow-xl dark:border-slate-800 dark:bg-slate-900"
-      >
-        <div className="flex items-start justify-between gap-3">
+      <div className="flex items-start justify-between gap-3">
           <h2 id={titleId} className="text-lg font-semibold">
             🤖 AI assistant
           </h2>
@@ -281,7 +244,6 @@ export function AISettings({ ai, onClose }: AISettingsProps) {
             {ai.keyPersisted && ' Your key is stored on this device.'}
           </p>
         </div>
-      </div>
-    </div>
+    </Modal>
   )
 }

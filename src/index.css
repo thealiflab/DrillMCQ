@@ -13,6 +13,12 @@ html {
   scroll-behavior: smooth;
 }
 
+/* Keeps the fixed bottom navigation (and the quiz's sticky action bar) clear
+   of the iOS home indicator. */
+@utility pb-safe {
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+
 body {
   @apply bg-slate-100 text-slate-900 antialiased dark:bg-slate-950 dark:text-slate-100;
 }

@@ -1,14 +1,19 @@
 import type { AttemptStatus, HistoryStats, SavedQuiz } from '../types/quiz'
-import { formatDateTime } from '../utils/library'
+import { formatRelativeDay, progressSummary } from '../utils/library'
 import { getCategories } from '../utils/quiz'
+import type { MenuAction } from './OverflowMenu'
+import { OverflowMenu } from './OverflowMenu'
 
 interface SavedQuizCardProps {
   quiz: SavedQuiz
   status: AttemptStatus
   stats: HistoryStats
-  /** Start, resume, or retake — the label follows `status`. */
+  /** The one visible action: Start, Continue, or Start again. */
   onPrimary: () => void
+  /** Restart from question 1, discarding an unfinished run. */
+  onStartOver: () => void
   onViewResults: () => void
+  onRename: () => void
   onDelete: () => void
 }
 
@@ -25,23 +30,45 @@ const STATUS_CLASS: Record<AttemptStatus, string> = {
 }
 
 const PRIMARY_LABEL: Record<AttemptStatus, string> = {
-  'not-started': 'Start quiz',
-  'in-progress': 'Resume quiz',
-  completed: 'Retake quiz',
+  'not-started': 'Start',
+  'in-progress': 'Continue',
+  completed: 'Start again',
 }
 
-/** One quiz in the library: what it is, how it went, and what to do next. */
+/**
+ * One quiz in the library: what it is, how it went, and what to do next.
+ *
+ * Exactly one action is a button — the one the status implies. Everything
+ * else sits in the overflow menu, so the card reads as a quiz rather than as
+ * a toolbar.
+ */
 export function SavedQuizCard({
   quiz,
   status,
   stats,
   onPrimary,
+  onStartOver,
   onViewResults,
+  onRename,
   onDelete,
 }: SavedQuizCardProps) {
   const categories = getCategories(quiz.questions)
   const shownCategories = categories.slice(0, 3)
-  const answeredInProgress = quiz.progress ? Object.keys(quiz.progress.answers).length : 0
+  const progress = quiz.progress ? progressSummary(quiz.progress) : null
+
+  const actions: MenuAction[] = [
+    // Only meaningful while a run is unfinished — otherwise the primary
+    // button already starts from the beginning.
+    ...(status === 'in-progress' ? [{ label: 'Start again', onSelect: onStartOver }] : []),
+    {
+      label: 'View results',
+      onSelect: onViewResults,
+      disabled: stats.attempts === 0,
+      title: stats.attempts === 0 ? 'No attempts yet' : undefined,
+    },
+    { label: 'Rename', onSelect: onRename },
+    { label: 'Delete', onSelect: onDelete, danger: true },
+  ]
 
   return (
     <li className="flex flex-col rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
@@ -54,7 +81,7 @@ export function SavedQuizCard({
 
       <p className="mt-1.5 text-sm text-slate-600 dark:text-slate-400">
         {quiz.questions.length} question{quiz.questions.length === 1 ? '' : 's'} · Updated{' '}
-        {formatDateTime(quiz.updatedAt)}
+        {formatRelativeDay(quiz.updatedAt)}
       </p>
 
       {shownCategories.length > 0 && (
@@ -75,11 +102,35 @@ export function SavedQuizCard({
         </ul>
       )}
 
+      {progress !== null && (
+        <div className="mt-3">
+          <p className="text-sm text-slate-600 dark:text-slate-400">
+            Progress: {progress.percent}% · {progress.answered}/{progress.total} answered
+          </p>
+          <div
+            role="progressbar"
+            aria-valuenow={progress.percent}
+            aria-valuemin={0}
+            aria-valuemax={100}
+            aria-label={`${quiz.name} progress`}
+            className="mt-1.5 h-1.5 w-full overflow-hidden rounded-full bg-slate-200 dark:bg-slate-800"
+          >
+            <div className="h-full rounded-full bg-amber-500" style={{ width: `${progress.percent}%` }} />
+          </div>
+        </div>
+      )}
+
       <dl className="mt-3 flex flex-wrap gap-x-5 gap-y-1 text-sm">
         {stats.latest !== null && (
           <div className="flex gap-1.5">
             <dt className="text-slate-500 dark:text-slate-400">Last score</dt>
             <dd className="font-semibold text-indigo-600 dark:text-indigo-400">{stats.latest}%</dd>
+          </div>
+        )}
+        {stats.best !== null && (
+          <div className="flex gap-1.5">
+            <dt className="text-slate-500 dark:text-slate-400">Best</dt>
+            <dd className="font-semibold">{stats.best}%</dd>
           </div>
         )}
         {stats.attempts > 0 && (
@@ -88,41 +139,17 @@ export function SavedQuizCard({
             <dd className="font-semibold">{stats.attempts}</dd>
           </div>
         )}
-        {status === 'in-progress' && quiz.progress && (
-          <div className="flex gap-1.5">
-            <dt className="text-slate-500 dark:text-slate-400">Answered</dt>
-            <dd className="font-semibold">
-              {answeredInProgress}/{quiz.progress.questions.length}
-            </dd>
-          </div>
-        )}
       </dl>
 
-      <div className="mt-4 flex flex-wrap items-center gap-2 pt-1">
+      <div className="mt-auto flex items-center gap-2 pt-4">
         <button
           type="button"
           onClick={onPrimary}
-          className="rounded-xl bg-indigo-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-indigo-700"
+          className="min-h-11 flex-1 rounded-xl bg-indigo-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-indigo-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-500 sm:flex-none"
         >
           {PRIMARY_LABEL[status]}
         </button>
-        <button
-          type="button"
-          onClick={onViewResults}
-          disabled={stats.attempts === 0}
-          title={stats.attempts === 0 ? 'No attempts yet' : undefined}
-          className="rounded-xl border border-slate-300 bg-white px-4 py-2 text-sm font-medium shadow-sm transition-colors hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-slate-700 dark:bg-slate-900 dark:hover:bg-slate-800"
-        >
-          View results
-        </button>
-        <button
-          type="button"
-          onClick={onDelete}
-          aria-label={`Delete ${quiz.name}`}
-          className="ml-auto rounded-xl px-3 py-2 text-sm font-medium text-slate-500 transition-colors hover:bg-red-50 hover:text-red-600 dark:text-slate-400 dark:hover:bg-red-950/50"
-        >
-          Delete
-        </button>
+        <OverflowMenu label={`More actions for ${quiz.name}`} actions={actions} />
       </div>
     </li>
   )
