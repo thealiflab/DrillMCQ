@@ -34,6 +34,12 @@ import {
   AI_VERIFICATION_SYSTEM,
   buildAIVerificationPrompt,
 } from '../utils/ai/buildAIVerificationPrompt'
+import {
+  AI_JSON_REPAIR_SCHEMA,
+  AI_JSON_REPAIR_SYSTEM,
+  buildAIJsonRepairPrompt,
+} from '../utils/ai/buildAIJsonRepairPrompt'
+import { chunkRawJson, mergeJsonChunks } from '../utils/ai/chunkRawJson'
 import { chunkRawText } from '../utils/ai/chunkRawText'
 import {
   validateExplanationResponse,
@@ -81,6 +87,13 @@ const TIMEOUT_MS = {
  * out.
  */
 const FORMATTING_CHUNK_CHARS = 8_000
+
+/**
+ * Characters of raw JSON per repair request. Smaller than the plain-text
+ * budget: JSON is punctuation-heavy, so the same character count costs more
+ * tokens both in the prompt and in the rewritten copy coming back.
+ */
+const JSON_REPAIR_CHUNK_CHARS = 6_000
 
 /** Cap on notes kept across a multi-chunk formatting run. */
 const MAX_FORMATTING_NOTES = 20
@@ -436,12 +449,34 @@ export function useAI() {
   }, [])
 
   // -------------------------------------------------------------------------
-  // Workflow C — tidy up pasted text
+  // Workflows C and D — rewrite what the user pasted
   // -------------------------------------------------------------------------
 
-  const formatText = useCallback(
-    async (rawText: string): Promise<AIFormattingResult | null> => {
-      const chunks = chunkRawText(rawText, FORMATTING_CHUNK_CHARS)
+  /**
+   * Run a rewrite workflow over pre-split chunks and stitch the pieces back
+   * together.
+   *
+   * Both rewrite workflows send several requests for one button press, because
+   * a rewrite reproduces its own input and a whole question bank exceeds both
+   * the output budget and the request timeout. They differ only in the prompt
+   * and in how the pieces rejoin, so the loop — progress reporting, abort
+   * checks, note merging, and the rule that a part-way failure returns the
+   * untouched remainder rather than swallowing it — lives here once.
+   */
+  const runRewrite = useCallback(
+    async (
+      chunks: string[],
+      spec: {
+        kind: AIRequestKind
+        system: string
+        schema: Record<string, unknown>
+        schemaName: string
+        buildPrompt: (chunk: string) => string
+        join: (parts: string[]) => string
+        /** What a partial run is called in the note shown to the user. */
+        verb: string
+      },
+    ): Promise<AIFormattingResult | null> => {
       if (chunks.length === 0) return null
 
       return withRequest(async (controller) => {
@@ -457,13 +492,13 @@ export function useAI() {
           }
 
           const result = await run(
-            { kind: 'formatting', questionId: null, done: i, total: chunks.length },
+            { kind: spec.kind, questionId: null, done: i, total: chunks.length },
             {
-              kind: 'formatting',
-              system: AI_FORMATTING_SYSTEM,
-              user: buildAIFormattingPrompt(chunks[i]),
-              schema: AI_FORMATTING_SCHEMA as unknown as Record<string, unknown>,
-              schemaName: 'mcq_formatting',
+              kind: spec.kind,
+              system: spec.system,
+              user: spec.buildPrompt(chunks[i]),
+              schema: spec.schema,
+              schemaName: spec.schemaName,
               maxOutputTokens: MAX_TOKENS.formatting,
               timeoutMs: TIMEOUT_MS.formatting,
             },
@@ -485,20 +520,52 @@ export function useAI() {
         if (parts.length === 0) return null
 
         // A part-way failure must never eat the user's paste: hand back what was
-        // formatted followed by the rest exactly as it came in. The error is
+        // rewritten followed by the rest exactly as it came in. The error is
         // already in state, so the panel explains itself.
         if (stoppedAt !== -1) {
           parts.push(...chunks.slice(stoppedAt))
           notes.unshift(
-            `Only the first ${stoppedAt} of ${chunks.length} parts were reformatted — ` +
+            `Only the first ${stoppedAt} of ${chunks.length} parts were ${spec.verb} — ` +
               'the rest is unchanged from what you pasted.',
           )
         }
 
-        return { text: parts.join('\n\n'), notes }
+        return { text: spec.join(parts), notes }
       })
     },
     [run, withRequest],
+  )
+
+  /** Workflow C — tidy up pasted plain text for `parseMcqText`. */
+  const formatText = useCallback(
+    async (rawText: string): Promise<AIFormattingResult | null> =>
+      runRewrite(chunkRawText(rawText, FORMATTING_CHUNK_CHARS), {
+        kind: 'formatting',
+        system: AI_FORMATTING_SYSTEM,
+        schema: AI_FORMATTING_SCHEMA as unknown as Record<string, unknown>,
+        schemaName: 'mcq_formatting',
+        buildPrompt: buildAIFormattingPrompt,
+        join: (parts) => parts.join('\n\n'),
+        verb: 'reformatted',
+      }),
+    [runRewrite],
+  )
+
+  /** Workflow D — repair pasted quiz JSON for `parseQuizJson`. */
+  const repairJson = useCallback(
+    async (rawJson: string): Promise<AIFormattingResult | null> =>
+      runRewrite(chunkRawJson(rawJson, JSON_REPAIR_CHUNK_CHARS), {
+        kind: 'json-repair',
+        system: AI_JSON_REPAIR_SYSTEM,
+        schema: AI_JSON_REPAIR_SCHEMA as unknown as Record<string, unknown>,
+        schemaName: 'quiz_json_repair',
+        buildPrompt: buildAIJsonRepairPrompt,
+        // Each chunk comes back as its own array, so they merge as arrays
+        // rather than by concatenating text.
+        join: mergeJsonChunks,
+        verb: 'repaired',
+      }),
+    [runRewrite],
   )
 
   return {
@@ -540,8 +607,9 @@ export function useAI() {
     clearVerifications,
     dismissVerification,
 
-    // workflow C
+    // workflows C and D
     formatText,
+    repairJson,
   }
 }
 

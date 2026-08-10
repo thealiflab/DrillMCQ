@@ -6,7 +6,7 @@ import { TextUploader } from './TextUploader'
 
 interface QuizImporterProps {
   onLoad: (questions: QuizQuestion[]) => void
-  /** Forwarded to the text tab only — JSON input is already structured. */
+  /** Forwarded to both tabs: each has its own AI clean-up for its own format. */
   ai?: UseAI
 }
 
@@ -50,7 +50,11 @@ export function QuizImporter({ onLoad, ai }: QuizImporterProps) {
         </button>
       </div>
 
-      {mode === 'text' ? <TextUploader onLoad={onLoad} ai={ai} /> : <JsonUploader onLoad={onLoad} />}
+      {mode === 'text' ? (
+        <TextUploader onLoad={onLoad} ai={ai} />
+      ) : (
+        <JsonUploader onLoad={onLoad} ai={ai} />
+      )}
     </div>
   )
 }

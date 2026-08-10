@@ -11,7 +11,12 @@
 export type AIProviderId = 'openai' | 'gemini' | 'anthropic'
 
 /** What the assistant is being asked to do. Picks the prompt and validator. */
-export type AIRequestKind = 'explanation' | 'verification' | 'formatting' | 'connection'
+export type AIRequestKind =
+  | 'explanation'
+  | 'verification'
+  | 'formatting'
+  | 'json-repair'
+  | 'connection'
 
 export type AIConfidence = 'high' | 'medium' | 'low'
 
@@ -73,9 +78,13 @@ export interface AIVerificationBatch {
 }
 
 /**
- * Workflow C: AI-tidied *plain text*, fed straight back into `parseMcqText`.
- * Never questions — keeping the parser the only producer of question objects
- * is what stops the AI from bypassing noise filtering or answer resolution.
+ * Workflow C: AI-tidied *text*, fed straight back into the textarea the user
+ * pasted into — plain text on the text tab, JSON source on the JSON tab.
+ *
+ * Never questions. The AI hands back something to re-paste, so `parseMcqText`
+ * stays the only producer of question objects on the text path and
+ * `parseQuizJson` stays the only gate on the JSON path. Neither validator can
+ * be bypassed, and the user sees exactly what will be parsed.
  */
 export interface AIFormattingResult {
   text: string
