@@ -7,21 +7,45 @@ A modern, fully client-side quiz platform built with **React**, **TypeScript**, 
 - **Plain-text MCQ import**: paste raw exam dumps or practice questions; a smart parser detects questions, options (A/B/C/D, a/b/c/d, numbered, bulleted), answers, explanations, and categories, with a live preview and per-line error/warning reporting. Common website and PDF clutter (ads, page numbers, "Show Answer" buttons, share widgets) is filtered out and reported as an ignored-lines count.
 - **JSON import**: paste JSON into a textarea, with friendly validation errors
 - **Multiple correct answers**: a question whose answer line lists more than one option (`Answer: A, C`) automatically becomes a "select all that apply" question with tick boxes and a **Check answer** button. Nothing to configure, and single-answer questions are unaffected.
+- **Four clear destinations**: **Home**, **Create Quiz**, **Quiz Library**, and **Results** — a sticky header on desktop and a thumb-reachable bottom bar on phones
+- **Home dashboard**: what to do next at a glance, plus a **Continue quiz** banner (with a progress bar) whenever an unfinished run is waiting
+- **Guided import flow**: a **Paste → Review → Start** step indicator so it is obvious where you are and what comes next
 - **Professional quiz engine**: one question at a time, progress bar, next/previous navigation
+- **Distraction-free quiz screen**: while you are answering, the navigation is replaced by a slim bar showing the quiz name, timer, position, and progress — the only way out is a labelled back button behind a confirmation, so a stray tap can't abandon a run
 - **Keyboard navigation**: `←`/`→` to move between questions, `1–8` or `A–H` to select answers (they tick and untick on a multi-answer question, with `Enter` to check it)
 - **Results & review**: score, percentage, per-question review with correct/incorrect indicators
 - **Explanations**: optional expandable explanation per question
-- **Quiz library**: save imported quizzes to a local **My Quizzes** section on the main screen, with question count, categories, last score, and attempt status (not started / in progress / completed)
-- **Resume**: leave or refresh mid-quiz and pick up from the library exactly where you left off, with answers, position, timer, and settings intact
-- **Results history**: every completed attempt is kept locally per quiz, with latest / best / average scores and a full review of any past attempt
+- **Quiz library**: save imported quizzes to your **Quiz Library**, with question count, categories, best score, attempts, and status (not started / in progress / completed). Rename, start over, view results, or delete from a per-card menu
+- **Resume**: leave or refresh mid-quiz and pick up from home or the library exactly where you left off, with answers, position, timer, and settings intact
+- **Results history**: every completed attempt is kept locally, on its own **Results** screen and per quiz, with latest / best / average scores and a full review of any past attempt
 - **Session persistence**: progress, answers, and timer survive a page refresh (localStorage)
 - **Timer mode**: optional countdown that auto-submits when time runs out
 - **Shuffle**: optionally shuffle questions and/or options
 - **Category filtering**: pick which categories to include before starting
 - **Review tools**: filter to incorrect answers only, search questions
 - **JSON export**: download the loaded quiz as a JSON file from the results screen
-- **Dark/light mode**: toggle with saved preference (respects OS preference by default)
-- **Responsive**: works on mobile, tablet, and desktop
+- **Dark/light mode**: toggle from the header or the ⚙️ **Settings** dialog, with saved preference (respects OS preference by default)
+- **Optional AI assistant**: bring your own key to tidy a messy paste, repair broken JSON, double-check answers, or explain a result — off by default, and every request is a deliberate button press
+- **Mobile-first and responsive**: touch-sized targets, safe-area aware bottom navigation, and layouts that scale up to desktop
+
+## Getting around
+
+The app has exactly four destinations, in the header on desktop and in a bottom
+bar on phones:
+
+| Destination      | What lives there                                                                                  |
+| ---------------- | ------------------------------------------------------------------------------------------------- |
+| 🏠 **Home**      | A short intro, the four things you can do, a **Continue quiz** banner for any unfinished run, and your most recent results |
+| ➕ **Create Quiz** | The **Plain text** / **JSON** importer, the live preview, and the setup options                    |
+| 📚 **Quiz Library** | Every saved quiz: start, continue, start over, rename, view its results, or delete                |
+| 📊 **Results**   | Every completed attempt across all quizzes, including quizzes never saved to the library            |
+
+⚙️ **Settings** (header) holds the theme switch and the optional AI assistant.
+
+Everything else — the setup screen, an active run, a result, a quiz's history, a
+stored attempt — is a layer over one of those four, so you always know where
+"back" goes. While a quiz is being answered the navigation is deliberately
+hidden: you get the quiz bar instead, and leaving asks first.
 
 ## Screenshots
 
@@ -89,14 +113,16 @@ npm run test:watch
 ```
 
 Tests cover the storage layer (saving, loading, updating and deleting quizzes and
-results, corrupted data, migration) and the pure library/history logic.
+results, corrupted data, migration), the pure library/history logic, the
+plain-text parser, and the chunk splitters used by the AI rewrite workflows.
 
 ## Importing Questions
 
-The importer has two tabs, **Plain text** and **JSON**. Both are paste-only
-textareas; there is no file-upload input. After a successful import you can name
-and save the quiz to your library, then choose shuffle, timer, and category
-options before starting.
+**Create Quiz** has two tabs, **Plain text** and **JSON**. Both are paste-only
+textareas; there is no file-upload input. A **Paste → Review → Start** indicator
+tracks where you are: after a successful import you can name and save the quiz
+to your library, then choose shuffle, timer, and category options before
+starting.
 
 ### Plain text format
 
@@ -242,7 +268,7 @@ Everything is stored in your browser's `localStorage` under versioned keys:
 | Key                            | Contents                             |
 | ------------------------------ | ------------------------------------ |
 | `drillmcq_active_session.v1`   | The in-progress quiz session         |
-| `drillmcq_saved_quizzes.v1`    | The **My Quizzes** library           |
+| `drillmcq_saved_quizzes.v1`    | The **Quiz Library**                 |
 | `drillmcq_quiz_results.v1`     | Completed attempts (append-only)     |
 | `drillmcq.theme.v1`            | Dark/light preference                |
 | `drillmcq_ai_prefs.v1`         | AI provider/model preference         |
@@ -263,17 +289,25 @@ stops persisting.
 DrillMCQ can use an AI model as a second opinion. It is **off by default and the
 app is fully usable without it** — every feature above works untouched.
 
-Because there is no backend, you bring your own API key: open the 🤖 button in
-the header, pick a provider (OpenAI, Google Gemini or Anthropic Claude), choose
-a model, paste your key, and hit **Test connection**.
+Because there is no backend, you bring your own API key: open ⚙️ **Settings** in
+the header → **Configure AI assistant**, pick a provider (OpenAI, Google Gemini
+or Anthropic Claude), choose a model, paste your key, and hit **Test
+connection**. A green dot on the settings button means the assistant is
+configured; it turns into a spinner while a request is in flight.
 
-Once it is on, three optional actions appear:
+Once it is on, four optional actions appear:
 
 | Where | Action | What it does |
 | ----- | ------ | ------------ |
-| Paste screen | **✨ Format with AI** | Tidies a messy paste into the format the parser expects. The result goes back into the text box — the normal parser still does the actual importing, and you can undo it. |
+| Paste screen · Plain text | **✨ Format with AI** | Tidies a messy paste into the format the parser expects. The result goes back into the text box — the normal parser still does the actual importing, and you can undo it. |
+| Paste screen · JSON | **✨ Fix JSON with AI** | Repairs broken or off-schema quiz JSON (trailing commas, missing fields, answers that don't match an option). The result goes back into the text box and is re-validated immediately, so a repair that didn't work says so straight away — and you can undo it. |
 | After importing | **Verify answers** | The AI works out each answer itself and flags where it disagrees with your source. Useful for question banks scraped from the web, which often carry the wrong key. |
 | Results screen | **🤖 Ask AI** | Explains why the correct answer is correct, why yours was wrong, and whether the source answer itself looks mistaken. |
+
+Both rewrite buttons work through a long paste in several requests rather than
+one, showing progress (`Fixing 2/5…`) as they go, and every AI action can be
+cancelled mid-flight. If a part fails, the rest of your paste comes back
+untouched with a note saying how far it got — nothing you pasted is ever lost.
 
 **The AI never changes your quiz on its own.** When it disagrees with a source
 answer you get both side by side and choose: keep the source, use the AI's
@@ -331,21 +365,29 @@ vercel
 ```text
 src/
  ├── components/
+ │    ├── AppNav.tsx           # Header + phone bottom bar (4 destinations)
+ │    ├── HomeDashboard.tsx    # Home screen + "Continue quiz" banner
+ │    ├── QuizTopBar.tsx       # The only chrome shown during a run
+ │    ├── StepIndicator.tsx    # Paste → Review → Start
  │    ├── QuizCard.tsx         # Question + options card
  │    ├── QuizSetup.tsx        # Shuffle / timer / category settings
  │    ├── ProgressBar.tsx      # Progress indicator
  │    ├── ResultScreen.tsx     # Score summary + answer review
  │    ├── ExplanationPanel.tsx # Expandable explanation
  │    ├── ThemeToggle.tsx      # Dark/light mode switch
+ │    ├── SettingsDialog.tsx   # Appearance + door into the AI assistant
  │    ├── QuizImporter.tsx     # Tabbed import (plain text / JSON)
  │    ├── TextUploader.tsx     # Plain-text MCQ import with live preview
- │    ├── JsonUploader.tsx     # Paste JSON import
+ │    ├── JsonUploader.tsx     # Paste JSON import (+ optional AI repair)
  │    ├── SaveQuizPanel.tsx    # Name + save an import to the library
- │    ├── SavedQuizList.tsx    # "My Quizzes" section + delete flow
+ │    ├── SavedQuizList.tsx    # Quiz Library + rename / start-over / delete
  │    ├── SavedQuizCard.tsx    # One saved quiz: status, score, actions
  │    ├── QuizHistory.tsx      # Per-quiz results history
- │    ├── RecentResults.tsx    # Recent attempts across all quizzes
+ │    ├── RecentResults.tsx    # Home strip + full Results screen
+ │    ├── Modal.tsx            # Focus-trapped dialog shell
  │    ├── ConfirmDialog.tsx    # Accessible confirmation modal
+ │    ├── OverflowMenu.tsx     # Per-card "…" action menu
+ │    ├── Spinner.tsx          # Inline busy indicator
  │    ├── AISettings.tsx       # AI provider / model / key (optional)
  │    ├── AIAnswerExplanation.tsx  # "Ask AI" panel on the results screen
  │    └── AIVerificationPanel.tsx  # AI answer check after importing
@@ -355,6 +397,7 @@ src/
  │    ├── useQuizHistory.ts    # Completed attempts state
  │    ├── useTheme.ts          # Theme state
  │    ├── useTimer.ts          # Refresh-safe countdown
+ │    ├── useBusyAction.ts     # Busy state for a one-shot async action
  │    └── useAI.ts             # AI config, key, and request lifecycle
  ├── services/
  │    ├── storage.ts           # localStorage wrapper + migration
@@ -364,12 +407,14 @@ src/
  │         └── providers/      # openai / gemini / anthropic over fetch
  ├── types/
  │    ├── quiz.ts              # Shared TypeScript types
+ │    ├── navigation.ts        # The four top-level destinations
  │    └── ai.ts                # AI domain types (leaf)
  ├── utils/
  │    ├── quiz.ts              # Validation, shuffling, scoring
  │    ├── library.ts           # Session <-> progress <-> attempt transforms
  │    ├── parseMcqText.ts      # Plain-text MCQ parser
- │    └── ai/                  # Pure prompt builders + response validation
+ │    └── ai/                  # Pure prompt builders, chunk splitters,
+ │                             # and response validation
  ├── data/
  │    └── sampleQuiz.json      # Sample quiz dataset
  ├── App.tsx
