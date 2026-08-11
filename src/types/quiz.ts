@@ -39,6 +39,13 @@ export interface QuizSession {
    * check, and so the lock state (answered = locked) needs no extra field.
    */
   drafts: Record<number, string[]>
+  /**
+   * Ids of questions the user revealed mid-quiz with "Check answer". Revealing
+   * shows the correct answer, so it also freezes the question — the selection
+   * recorded in `answers` is final and still counts for scoring exactly as an
+   * unchecked one does.
+   */
+  revealed: number[]
   currentIndex: number
   status: 'active' | 'finished'
   /** Epoch ms when the quiz started (used to restore the timer). */
@@ -70,6 +77,7 @@ export interface SavedQuizProgress {
   questions: QuizQuestion[]
   answers: Record<number, string[]>
   drafts: Record<number, string[]>
+  revealed: number[]
   currentIndex: number
   startedAt: number
   timerMinutes: number

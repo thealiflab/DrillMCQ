@@ -45,6 +45,29 @@ export function isAnswerCorrect(question: QuizQuestion, selected?: string[]): bo
   return selected.every((option) => question.correctAnswers.includes(option))
 }
 
+/**
+ * Has the user revealed this question's answer with "Check answer"?
+ * `revealed` is the single source of truth for mid-quiz feedback.
+ */
+export function isRevealed(session: QuizSession, questionId: number): boolean {
+  return session.revealed.includes(questionId)
+}
+
+/**
+ * Is the question frozen against further changes?
+ *
+ * Two independent reasons, both permanent: the answer has been revealed (it is
+ * on screen, so re-picking would be meaningless), or it is a multi-answer
+ * question whose draft was already committed. The second clause is what keeps
+ * sessions written before "Check answer" existed locked exactly as they were.
+ */
+export function isQuestionLocked(session: QuizSession, question: QuizQuestion): boolean {
+  return (
+    isRevealed(session, question.id) ||
+    (isMultiAnswer(question) && session.answers[question.id] !== undefined)
+  )
+}
+
 /** Add or remove an option from a multi-select draft. Never mutates. */
 export function toggleOption(selected: string[], option: string): string[] {
   return selected.includes(option)

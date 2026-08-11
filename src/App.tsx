@@ -33,7 +33,7 @@ import {
   progressToSession,
   sortAttemptsByRecency,
 } from './utils/library'
-import { isMultiAnswer } from './utils/quiz'
+import { isMultiAnswer, isQuestionLocked, isRevealed } from './utils/quiz'
 
 /** How many entries the home dashboard's "recent results" strip shows. */
 const RECENT_RESULTS_LIMIT = 5
@@ -497,7 +497,13 @@ function ActiveQuiz({ session, quiz, onExit }: ActiveQuizProps) {
   const [confirmExit, setConfirmExit] = useState(false)
 
   const multi = isMultiAnswer(question)
-  const locked = multi && answers[question.id] !== undefined
+  const revealed = isRevealed(session, question.id)
+  const locked = isQuestionLocked(session, question)
+  // What "Check Answer" would judge right now: a single pick is already an
+  // answer, a multi-answer selection is still a draft.
+  const hasSelection = multi
+    ? (answers[question.id] ?? drafts[question.id] ?? []).length > 0
+    : answers[question.id] !== undefined
 
   const remaining = useTimer(session.startedAt, session.timerMinutes, true, quiz.finishQuiz)
 
@@ -516,9 +522,9 @@ function ActiveQuiz({ session, quiz, onExit }: ActiveQuizProps) {
       if (event.key === 'ArrowRight') quiz.next()
       else if (event.key === 'ArrowLeft') quiz.previous()
       else if (event.key === 'Enter') {
-        // Enter submits a multi-answer question, mirroring "Check answer".
-        if (multi && !locked) quiz.commitAnswer(question.id)
-      } else {
+        // Enter mirrors the "Check Answer" button, on either kind of question.
+        if (!locked && hasSelection) quiz.checkAnswer(question.id)
+      } else if (!locked) {
         // Number keys 1-8
         const num = Number(event.key)
         let optionIndex = Number.isInteger(num) && num >= 1 ? num - 1 : -1
@@ -537,7 +543,7 @@ function ActiveQuiz({ session, quiz, onExit }: ActiveQuizProps) {
     }
     window.addEventListener('keydown', handler)
     return () => window.removeEventListener('keydown', handler)
-  }, [quiz, question, multi, locked])
+  }, [quiz, question, multi, locked, hasSelection])
 
   const handleFinish = () => {
     // Ask for confirmation when questions are still unanswered, so a stray
@@ -568,15 +574,16 @@ function ActiveQuiz({ session, quiz, onExit }: ActiveQuizProps) {
           question={question}
           selectedAnswers={answers[question.id]}
           draft={drafts[question.id]}
+          revealed={revealed}
           onSelect={(option) => quiz.selectAnswer(question.id, option)}
           onToggle={(option) => quiz.toggleDraft(question.id, option)}
-          onCheck={() => quiz.commitAnswer(question.id)}
+          onCheck={() => quiz.checkAnswer(question.id)}
         />
 
         <p className="mt-5 text-center text-xs text-slate-400 dark:text-slate-600">
           Tip: use ← → to navigate, 1–{Math.min(question.options.length, 8)} or A–
           {String.fromCharCode(64 + Math.min(question.options.length, 8))} to{' '}
-          {multi ? 'tick options, Enter to check' : 'answer'}
+          {multi ? 'tick options' : 'answer'}, Enter to check
         </p>
       </main>
 

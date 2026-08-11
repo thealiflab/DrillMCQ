@@ -6,13 +6,14 @@ A modern, fully client-side quiz platform built with **React**, **TypeScript**, 
 
 - **Plain-text MCQ import**: paste raw exam dumps or practice questions; a smart parser detects questions, options (A/B/C/D, a/b/c/d, numbered, bulleted), answers, explanations, and categories, with a live preview and per-line error/warning reporting. Common website and PDF clutter (ads, page numbers, "Show Answer" buttons, share widgets) is filtered out and reported as an ignored-lines count.
 - **JSON import**: paste JSON into a textarea, with friendly validation errors
-- **Multiple correct answers**: a question whose answer line lists more than one option (`Answer: A, C`) automatically becomes a "select all that apply" question with tick boxes and a **Check answer** button. Nothing to configure, and single-answer questions are unaffected.
+- **Multiple correct answers**: a question whose answer line lists more than one option (`Answer: A, C`) automatically becomes a "select all that apply" question with tick boxes. Nothing to configure, and single-answer questions are unaffected.
+- **Check Answer**: every question can be checked on the spot — the correct answer is revealed, your selection is marked right or wrong (all of it, on a multi-answer question), and the question stays put for review. Optional, one-way, and the quiz never advances by itself.
 - **Four clear destinations**: **Home**, **Create Quiz**, **Quiz Library**, and **Results** — a sticky header on desktop and a thumb-reachable bottom bar on phones
 - **Home dashboard**: what to do next at a glance, plus a **Continue quiz** banner (with a progress bar) whenever an unfinished run is waiting
 - **Guided import flow**: a **Paste → Review → Start** step indicator so it is obvious where you are and what comes next
 - **Professional quiz engine**: one question at a time, progress bar, next/previous navigation
 - **Distraction-free quiz screen**: while you are answering, the navigation is replaced by a slim bar showing the quiz name, timer, position, and progress — the only way out is a labelled back button behind a confirmation, so a stray tap can't abandon a run
-- **Keyboard navigation**: `←`/`→` to move between questions, `1–8` or `A–H` to select answers (they tick and untick on a multi-answer question, with `Enter` to check it)
+- **Keyboard navigation**: `←`/`→` to move between questions, `1–8` or `A–H` to select answers (they tick and untick on a multi-answer question), `Enter` to check the current question
 - **Results & review**: score, percentage, per-question review with correct/incorrect indicators
 - **Explanations**: optional expandable explanation per question
 - **Quiz library**: save imported quizzes to your **Quiz Library**, with question count, categories, best score, attempts, and status (not started / in progress / completed). Rename, start over, view results, or delete from a per-card menu
@@ -232,22 +233,42 @@ the app writes out uses `correctAnswers`.
 
 A ready-to-use sample lives at [`src/data/sampleQuiz.json`](src/data/sampleQuiz.json). You can also click **"Try the sample quiz"** on the JSON tab in the app.
 
+## Check Answer
+
+Every question has a **Check Answer** button under its options. It stays
+disabled until you have picked something, and pressing it (or `Enter`):
+
+- reveals the correct answer — every correct option turns green, and a pick that
+  wasn't one turns red;
+- says whether *your* answer was right. On a multi-answer question the verdict
+  judges your complete selection, and every correct option is listed, including
+  the ones you missed;
+- opens the explanation, if the question has one.
+
+Checking is deliberate and one-way. The quiz does **not** move on by itself — the
+question stays on screen for as long as you want it, and Previous/Next work as
+usual. Once checked, the button is replaced by a "checked" note and the question
+is locked, so it can't be checked twice or quietly re-answered once the answer is
+on screen. Checking is entirely optional: skip it and the quiz behaves exactly as
+it did before, with everything revealed on the results screen.
+
+A checked answer is scored no differently from an unchecked one, and reveals
+survive a refresh or a resume from the library.
+
 ## Multiple correct answers
 
 A question is single- or multi-select purely from the number of entries in
 `correctAnswers` — there is no separate setting, and nothing to switch on.
 
-- **One correct answer**: unchanged. Click an option to select it; you can change
-  your mind any time before you finish.
+- **One correct answer**: click an option to select it; you can change your mind
+  any time before you finish — or until you check it.
 - **Two or more**: the card shows a **Select all that apply** badge and tick
-  boxes. Tick as many options as you like, then press **Check answer** (or
-  `Enter`) to submit them. The button stays disabled until you tick something.
-  **A multi-answer question can only be answered once** — it locks after you
+  boxes. Tick as many options as you like, then check them in one go. **A
+  multi-answer question can only be answered once** — it locks the moment you
   check it, so the card warns you before you commit.
 
-Correctness is never revealed during the quiz. Both kinds of question are marked
-on the results screen, where each option is labelled as correct, missed, or a
-wrong pick.
+Both kinds are marked the same way on the results screen, where each option is
+labelled as correct, missed, or a wrong pick.
 
 Scoring has no partial credit: a multi-answer question is correct only when the
 selected set is exactly the correct set. For correct answers `A, C`:
@@ -275,9 +296,10 @@ Everything is stored in your browser's `localStorage` under versioned keys:
 | `drillmcq_ai_key.v1`           | Your API key — **only** if you opt in |
 | `drillmcq_schema_version`      | Schema version used for migrations   |
 
-The current schema version is **2**. Upgrading from an older version rewrites
-stored questions and answers into the multi-answer shape in place, so saved
-quizzes, an in-progress run, and your results history all survive the upgrade.
+The current schema version is **3**. Upgrading from an older version rewrites
+stored questions and answers into the multi-answer shape, and gives an
+in-progress run its (empty) set of checked questions — all in place, so saved
+quizzes, an unfinished run, and your results history survive the upgrade.
 
 Nothing is ever sent to a server. Clearing site data clears your quizzes and
 history. Corrupted records are repaired or dropped on load rather than crashing

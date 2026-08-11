@@ -37,7 +37,7 @@ const AI_KEY_KEY = 'drillmcq_ai_key.v1'
 const LEGACY_SESSION_KEY = 'drillmcq.session.v1'
 
 /** Bump when a stored shape changes, and add a step to `migrate` below. */
-export const SCHEMA_VERSION = 2
+export const SCHEMA_VERSION = 3
 
 // ---------------------------------------------------------------------------
 // Low-level primitives
@@ -168,6 +168,20 @@ function normalizeAnswerMap(value: unknown): Record<number, string[]> {
   return out
 }
 
+/**
+ * List of question ids (the "answer revealed" set). A session written before
+ * "Check answer" existed simply has none, which is the correct reading: nothing
+ * was revealed during that run.
+ */
+function normalizeIdList(value: unknown): number[] {
+  if (!Array.isArray(value)) return []
+  const out: number[] = []
+  for (const item of value) {
+    if (typeof item === 'number' && Number.isFinite(item) && !out.includes(item)) out.push(item)
+  }
+  return out
+}
+
 /** Settings are cosmetic on load — fill in defaults rather than reject. */
 function normalizeSettings(value: unknown): QuizSettings {
   const raw = isRecord(value) ? value : {}
@@ -200,6 +214,7 @@ function normalizeSession(value: unknown): QuizSession | null {
     questions,
     answers,
     drafts: normalizeAnswerMap(value.drafts),
+    revealed: normalizeIdList(value.revealed),
     currentIndex:
       typeof value.currentIndex === 'number' && value.currentIndex >= 0
         ? Math.min(value.currentIndex, questions.length - 1)
@@ -226,6 +241,7 @@ function normalizeProgress(value: unknown): SavedQuizProgress | null {
     questions,
     answers: normalizeAnswerMap(value.answers),
     drafts: normalizeAnswerMap(value.drafts),
+    revealed: normalizeIdList(value.revealed),
     currentIndex:
       typeof value.currentIndex === 'number' && value.currentIndex >= 0
         ? Math.min(value.currentIndex, questions.length - 1)
@@ -415,6 +431,18 @@ export function migrate(): void {
     if (quizzes) writeJson(SAVED_QUIZZES_KEY, quizzes)
     const attempts = readJson(RESULTS_KEY, (v) => normalizeList(v, normalizeAttempt))
     if (attempts) writeJson(RESULTS_KEY, attempts)
+  }
+
+  // v2 -> v3: a session (and a saved quiz's progress snapshot) gained
+  // `revealed`, the set of questions checked mid-quiz. An older run has none,
+  // which `normalizeIdList` supplies, so this is another read-and-write-back
+  // under the same keys — no library or history is orphaned. Attempts are
+  // untouched: a finished attempt never carried reveals.
+  if (storedVersion < 3) {
+    const session = readJson(SESSION_KEY, normalizeSession)
+    if (session) writeJson(SESSION_KEY, session)
+    const quizzes = readJson(SAVED_QUIZZES_KEY, (v) => normalizeList(v, normalizeSavedQuiz))
+    if (quizzes) writeJson(SAVED_QUIZZES_KEY, quizzes)
   }
 
   writeRaw(SCHEMA_VERSION_KEY, String(SCHEMA_VERSION))

@@ -4,6 +4,8 @@ import {
   computeResult,
   isAnswerCorrect,
   isMultiAnswer,
+  isQuestionLocked,
+  isRevealed,
   normalizeQuestion,
   parseQuizJson,
   toggleOption,
@@ -31,11 +33,16 @@ const single: QuizQuestion = {
   correctAnswers: ['Paris'],
 }
 
-function sessionWith(questions: QuizQuestion[], answers: Record<number, string[]>): QuizSession {
+function sessionWith(
+  questions: QuizQuestion[],
+  answers: Record<number, string[]>,
+  revealed: number[] = [],
+): QuizSession {
   return {
     questions,
     answers,
     drafts: {},
+    revealed,
     currentIndex: 0,
     status: 'finished',
     startedAt: 0,
@@ -49,6 +56,31 @@ describe('single vs multiple answer detection', () => {
   it('derives the mode from the number of correct answers', () => {
     expect(isMultiAnswer(single)).toBe(false)
     expect(isMultiAnswer(multi)).toBe(true)
+  })
+})
+
+describe('checking an answer mid-quiz', () => {
+  it('reports only the questions the user actually revealed', () => {
+    const session = sessionWith([single, multi], { 2: ['Paris'] }, [2])
+    expect(isRevealed(session, 2)).toBe(true)
+    expect(isRevealed(session, 1)).toBe(false)
+  })
+
+  it('freezes a single-answer question once revealed, and not before', () => {
+    const answers = { 2: ['Rome'] }
+    expect(isQuestionLocked(sessionWith([single], answers), single)).toBe(false)
+    expect(isQuestionLocked(sessionWith([single], answers, [2]), single)).toBe(true)
+  })
+
+  it('keeps a committed multi-answer question locked even without a reveal', () => {
+    // This is what a session written before "Check Answer" existed looks like.
+    const session = sessionWith([multi], { 1: ['Windows'] })
+    expect(isRevealed(session, 1)).toBe(false)
+    expect(isQuestionLocked(session, multi)).toBe(true)
+  })
+
+  it('leaves an unanswered question open', () => {
+    expect(isQuestionLocked(sessionWith([multi], {}), multi)).toBe(false)
   })
 })
 

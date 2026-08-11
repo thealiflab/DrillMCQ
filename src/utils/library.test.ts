@@ -107,6 +107,7 @@ describe('resuming an unfinished quiz', () => {
       ...started,
       answers: { 1: ['Paris'] },
       drafts: { 3: ['Pacific'] },
+      revealed: [1],
       currentIndex: 2,
     }
 
@@ -121,6 +122,8 @@ describe('resuming an unfinished quiz', () => {
     expect(resumed.answers).toEqual({ 1: ['Paris'] })
     // An unsubmitted multi-select selection survives the round trip too.
     expect(resumed.drafts).toEqual({ 3: ['Pacific'] })
+    // As does a checked question, so resuming can't offer a second reveal.
+    expect(resumed.revealed).toEqual([1])
     expect(resumed.currentIndex).toBe(2)
     expect(resumed.startedAt).toBe(started.startedAt)
     expect(resumed.timerMinutes).toBe(20)

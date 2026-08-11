@@ -44,6 +44,7 @@ export function buildSession(
     questions,
     answers: {},
     drafts: {},
+    revealed: [],
     currentIndex: 0,
     status: 'active',
     startedAt: Date.now(),
@@ -62,6 +63,7 @@ export function sessionToProgress(session: QuizSession): SavedQuizProgress {
     questions: session.questions,
     answers: session.answers,
     drafts: session.drafts,
+    revealed: session.revealed,
     currentIndex: session.currentIndex,
     startedAt: session.startedAt,
     timerMinutes: session.timerMinutes,
@@ -76,6 +78,9 @@ export function progressToSession(quiz: SavedQuiz, progress: SavedQuizProgress):
     questions: progress.questions,
     answers: progress.answers,
     drafts: progress.drafts,
+    // Reveals are part of the run: a resumed quiz must not offer a second
+    // check on a question whose answer the user has already seen.
+    revealed: progress.revealed,
     currentIndex: progress.currentIndex,
     status: 'active',
     startedAt: progress.startedAt,
@@ -117,8 +122,10 @@ export function attemptToSession(attempt: QuizAttempt): QuizSession {
     questions: attempt.questions,
     answers: attempt.answers,
     // An attempt only ever stores submitted answers, so there is nothing in
-    // flight to restore.
+    // flight to restore — and a finished session shows every answer anyway,
+    // which makes mid-quiz reveals moot.
     drafts: {},
+    revealed: [],
     currentIndex: 0,
     status: 'finished',
     startedAt: attempt.startedAt,

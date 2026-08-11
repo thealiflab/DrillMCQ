@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from 'react'
 import type { QuizQuestion, QuizSession, QuizSettings } from '../types/quiz'
 import { clearSession, createId, loadSession, saveSession } from '../services/storage'
 import { buildSession } from '../utils/library'
-import { toggleOption } from '../utils/quiz'
+import { isMultiAnswer, toggleOption } from '../utils/quiz'
 
 interface StartOptions {
   /** Set when the run comes from a saved quiz, so the attempt can be filed. */
@@ -40,13 +40,15 @@ export function useQuiz() {
     setSession(restored)
   }, [])
 
-  /** Answer a single-answer question. Freely changeable until the quiz ends. */
+  /**
+   * Answer a single-answer question. Freely changeable until the quiz ends —
+   * or until the answer is revealed, which freezes it.
+   */
   const selectAnswer = useCallback((questionId: number, option: string) => {
-    setSession((s) =>
-      s && s.status === 'active'
-        ? { ...s, answers: { ...s.answers, [questionId]: [option] } }
-        : s,
-    )
+    setSession((s) => {
+      if (!s || s.status !== 'active' || s.revealed.includes(questionId)) return s
+      return { ...s, answers: { ...s.answers, [questionId]: [option] } }
+    })
   }, [])
 
   /**
@@ -57,6 +59,7 @@ export function useQuiz() {
   const toggleDraft = useCallback((questionId: number, option: string) => {
     setSession((s) => {
       if (!s || s.status !== 'active' || s.answers[questionId] !== undefined) return s
+      if (s.revealed.includes(questionId)) return s
       return {
         ...s,
         drafts: { ...s.drafts, [questionId]: toggleOption(s.drafts[questionId] ?? [], option) },
@@ -65,17 +68,31 @@ export function useQuiz() {
   }, [])
 
   /**
-   * Submit a multi-answer draft as the question's answer, which also locks it.
-   * No-op on an empty draft or a question that is already answered.
+   * Reveal the correct answer for a question and lock it in.
+   *
+   * The one entry point for "Check answer" on both kinds of question: a
+   * multi-answer draft is committed to `answers` first (so what gets judged is
+   * the complete selection), then the id joins `revealed`. No-op when there is
+   * nothing selected yet or the question was already checked, so the reveal can
+   * never rewrite an answer or happen twice.
    */
-  const commitAnswer = useCallback((questionId: number) => {
+  const checkAnswer = useCallback((questionId: number) => {
     setSession((s) => {
-      if (!s || s.status !== 'active' || s.answers[questionId] !== undefined) return s
+      if (!s || s.status !== 'active' || s.revealed.includes(questionId)) return s
+      const question = s.questions.find((q) => q.id === questionId)
+      if (question === undefined) return s
+
+      const revealed = [...s.revealed, questionId]
+      // Already answered (a single pick, or a multi-answer question committed
+      // by an older build): nothing to move, just reveal.
+      if (s.answers[questionId] !== undefined) return { ...s, revealed }
+      if (!isMultiAnswer(question)) return s
+
       const draft = s.drafts[questionId]
       if (draft === undefined || draft.length === 0) return s
       const drafts = { ...s.drafts }
       delete drafts[questionId]
-      return { ...s, answers: { ...s.answers, [questionId]: draft }, drafts }
+      return { ...s, answers: { ...s.answers, [questionId]: draft }, drafts, revealed }
     })
   }, [])
 
@@ -120,6 +137,7 @@ export function useQuiz() {
             ...s,
             answers: {},
             drafts: {},
+            revealed: [],
             currentIndex: 0,
             status: 'active',
             startedAt: Date.now(),
@@ -141,7 +159,7 @@ export function useQuiz() {
     resumeSession,
     selectAnswer,
     toggleDraft,
-    commitAnswer,
+    checkAnswer,
     goTo,
     next,
     previous,

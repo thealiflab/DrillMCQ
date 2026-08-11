@@ -75,6 +75,7 @@ function makeSession(overrides: Partial<QuizSession> = {}): QuizSession {
     questions,
     answers: { 1: ['Paris'] },
     drafts: {},
+    revealed: [],
     currentIndex: 1,
     status: 'active',
     startedAt: 5000,
@@ -312,7 +313,7 @@ describe('migration', () => {
 
     expect(loaded?.answers).toEqual({ 1: ['Paris'] })
     expect(loaded?.currentIndex).toBe(1)
-    expect(storage.getItem('drillmcq_schema_version')).toBe('2')
+    expect(storage.getItem('drillmcq_schema_version')).toBe(String(SCHEMA_VERSION))
   })
 
   it('upgrades pre-multi-answer questions and answers in place', () => {
@@ -349,7 +350,7 @@ describe('migration', () => {
     expect(session?.drafts).toEqual({})
     expect(loadSavedQuizzes()[0].questions[0].correctAnswers).toEqual(['Paris'])
     expect(loadAttempts()[0].answers).toEqual({ 1: ['Paris'] })
-    expect(storage.getItem('drillmcq_schema_version')).toBe('2')
+    expect(storage.getItem('drillmcq_schema_version')).toBe(String(SCHEMA_VERSION))
 
     // The upgrade is written back, so the stored copy is already current.
     expect(storage.getItem(SESSION_KEY)).toContain('correctAnswers')
@@ -361,8 +362,27 @@ describe('migration', () => {
     expect(loadSession()?.attemptId).toBe('current')
   })
 
+  it('backfills an empty reveal set on a session written before "Check Answer"', () => {
+    const preReveal: Record<string, unknown> = { ...makeSession() }
+    delete preReveal.revealed
+    storage.setItem(SESSION_KEY, JSON.stringify(preReveal))
+
+    // The run resumes with nothing revealed, rather than being thrown away.
+    expect(loadSession()?.revealed).toEqual([])
+    expect(loadSession()?.answers).toEqual({ 1: ['Paris'] })
+    expect(storage.getItem('drillmcq_schema_version')).toBe(String(SCHEMA_VERSION))
+  })
+
+  it('keeps a stored reveal set, dropping junk entries', () => {
+    storage.setItem(
+      SESSION_KEY,
+      JSON.stringify(makeSession({ revealed: [1, 1, 'two', null, 2] as unknown as number[] })),
+    )
+    expect(loadSession()?.revealed).toEqual([1, 2])
+  })
+
   it('leaves an already-migrated store untouched', () => {
-    storage.setItem('drillmcq_schema_version', '2')
+    storage.setItem('drillmcq_schema_version', String(SCHEMA_VERSION))
     storage.setItem(LEGACY_SESSION_KEY, JSON.stringify(makeSession({ attemptId: 'legacy' })))
     expect(loadSession()).toBeNull()
   })
@@ -416,10 +436,12 @@ describe('AI preferences', () => {
   })
 
   it('does not bump the schema version or add a migration step', () => {
-    // The AI keys are new, so there is no older shape to repair.
-    expect(SCHEMA_VERSION).toBe(2)
+    // The AI keys are new, so there is no older shape to repair — writing
+    // preferences must leave the version wherever the quiz shapes put it.
+    const before = SCHEMA_VERSION
     saveAIConfig(defaultAIConfig())
-    expect(storage.getItem('drillmcq_schema_version')).toBe('2')
+    expect(SCHEMA_VERSION).toBe(before)
+    expect(storage.getItem('drillmcq_schema_version')).toBe(String(before))
   })
 })
 
