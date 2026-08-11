@@ -15,8 +15,6 @@ interface AppNavProps {
   aiBusy: boolean
 }
 
-const LOGO_SRC = `${import.meta.env.BASE_URL}DrillMCQ_logo.png`
-
 /**
  * Primary navigation: a sticky header on every screen, plus a bottom bar on
  * phones where the header has no room for four labels.
@@ -44,7 +42,6 @@ export function AppNav({
             aria-label="DrillMCQ — go to home"
             className="flex shrink-0 items-center gap-2 rounded-lg px-1 py-1 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-500"
           >
-            <img src={LOGO_SRC} alt="" className="size-7 rounded-md" />
             <span className="text-lg font-bold tracking-tight">
               Drill<span className="text-indigo-600 dark:text-indigo-400">MCQ</span>
             </span>
