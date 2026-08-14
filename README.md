@@ -2,6 +2,34 @@
 
 A modern, fully client-side quiz platform built with **React**, **TypeScript**, and **Vite**. Paste quiz questions as plain text or JSON and instantly get a professional online-exam experience: no backend, no database, everything runs in your browser.
 
+## Table of Contents
+
+- [Features](#features)
+- [Getting around](#getting-around)
+- [Screenshots](#screenshots)
+- [Tech Stack](#tech-stack)
+- [Getting Started](#getting-started)
+  - [Prerequisites](#prerequisites)
+  - [Installation](#installation)
+  - [Run locally](#run-locally)
+  - [Build for production](#build-for-production)
+  - [Lint](#lint)
+  - [Test](#test)
+- [Importing Questions](#importing-questions)
+  - [Plain text format](#plain-text-format)
+  - [Prompt template for AI-generated questions](#prompt-template-for-ai-generated-questions)
+  - [Quiz JSON schema](#quiz-json-schema)
+- [Check Answer](#check-answer)
+- [Multiple correct answers](#multiple-correct-answers)
+- [Data & Storage](#data--storage)
+- [AI assistant (optional)](#ai-assistant-optional)
+  - [About your API key](#about-your-api-key)
+- [Deployment](#deployment)
+  - [GitHub Pages](#github-pages)
+  - [Vercel](#vercel)
+- [Project Structure](#project-structure)
+- [License](#license)
+
 ## Features
 
 - **Plain-text MCQ import**: paste raw exam dumps or practice questions; a smart parser detects questions, options (A/B/C/D, a/b/c/d, numbered, bulleted), answers (inline or from an answer key at the bottom of the paste), explanations, and categories, with a live preview and per-line error/warning reporting. Common website and PDF clutter (ads, page numbers, "Show Answer" buttons, share widgets) is filtered out and reported as an ignored-lines count.
