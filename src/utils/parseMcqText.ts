@@ -1,4 +1,5 @@
 import type { QuizQuestion } from '../types/quiz'
+import { findAnswerKey, type AnswerKeyEntry } from './answerKey'
 
 /**
  * Plain-text MCQ parser.
@@ -16,6 +17,11 @@ import type { QuizQuestion } from '../types/quiz'
  *   Answer: A, C | Answer: a, b and d      ← two or more = multi-select
  *   Explanation: ... | Reason: ...
  *   Category: ... | Topic: ...
+ *
+ * Answers may also arrive as one key at the *bottom* of the paste — see
+ * `utils/answerKey.ts` for the shapes recognized. Such a key is split off before
+ * the state machine runs and applied to the parsed questions afterwards, so it
+ * shares the option-matching and error reporting of an inline "Answer:" line.
  *
  * Clutter copied along from websites/PDFs (ads, page numbers, "Show Answer"
  * buttons, share widgets, breadcrumbs, copyright footers, …) is recognized by
@@ -61,6 +67,8 @@ interface Classified {
   value: string
   /** Option letter for letterOption/checkedOption lines. */
   label?: string
+  /** Question number for numbered/questionHeader lines, used to match a bottom answer key. */
+  number?: number
 }
 
 /**
@@ -119,12 +127,13 @@ const CATEGORY_RE = /^\s*(?:category|topic|subject)\s*[:\-–—]\s*(.+)$/i
 const LETTER_OPTION_RE = /^\s*\(?([A-Ha-h])[.)\]:]\s+(.+)$/
 const BULLET_OPTION_RE = /^\s*[-*•▪◦]\s+(.+)$/
 const NUMBERED_RE = /^\s*\(?(\d{1,3})[.)\]:]\s*(.+)$/
-const QUESTION_HEADER_RE = /^\s*(?:question|q)\s*\d*\s*[:.)\]]\s*(.*)$/i
+const QUESTION_HEADER_RE = /^\s*(?:question|q)\s*(\d*)\s*[:.)\]]\s*(.*)$/i
 // A header carrying a title in front of the numbering: "AI Practitioner Exam
 // Question 1", "Set B — Question 12:". The prefix charclass excludes sentence
 // punctuation and the number after "question" is required, so ordinary prose
 // ("…which answers this question?") can't match.
-const TITLED_HEADER_RE = /^[\w\s'&()\-–—]{1,60}?\bquestions?\s*[#№]?\s*\d{1,3}\s*[:.)\]\-–—]?\s*(.*)$/i
+const TITLED_HEADER_RE =
+  /^[\w\s'&()\-–—]{1,60}?\bquestions?\s*[#№]?\s*(\d{1,3})\s*[:.)\]\-–—]?\s*(.*)$/i
 
 // Empty checkbox/radio glyphs that exam dumps put in front of every option.
 const UNCHECKED_MARK_RE = /^\s*[❏☐▢□⬜◻▫○◯◽]\s*/
@@ -179,11 +188,17 @@ function classifyBody(line: string): Classified {
   m = BULLET_OPTION_RE.exec(line)
   if (m) return { kind: 'bulletOption', value: m[1].trim() }
   m = NUMBERED_RE.exec(line)
-  if (m) return { kind: 'numbered', value: m[2].trim() }
+  if (m) return { kind: 'numbered', value: m[2].trim(), number: Number(m[1]) }
   m = QUESTION_HEADER_RE.exec(line)
-  if (m) return { kind: 'questionHeader', value: m[1].trim() }
+  if (m) {
+    return {
+      kind: 'questionHeader',
+      value: m[2].trim(),
+      ...(m[1] !== '' && { number: Number(m[1]) }),
+    }
+  }
   m = TITLED_HEADER_RE.exec(line)
-  if (m) return { kind: 'questionHeader', value: m[1].trim() }
+  if (m) return { kind: 'questionHeader', value: m[2].trim(), number: Number(m[1]) }
   return { kind: 'text', value: line.trim() }
 }
 
@@ -273,10 +288,16 @@ function resolveAnswers(raw: string, options: string[]): string[] | null {
 
 interface RawQuestion {
   startLine: number
+  /** Number carried by the header ("3." / "Q3." / "Exam Question 3"), if any. */
+  number?: number
   questionLines: string[]
   options: { text: string; line: number }[]
   answerRaw?: string
   answerLine?: number
+  /** Entry from a bottom answer key that matched this question. */
+  keyAnswer?: AnswerKeyEntry
+  /** True when `answerRaw` came from the answer key rather than an inline line. */
+  answerFromKey?: boolean
   /** Options pointed at by a "✓" marker instead of an "Answer:" line. */
   checkedAnswers: { raw: string; line: number }[]
   /** True once an option carried an A./B./… label, so ticks can be read against it. */
@@ -307,8 +328,92 @@ function answeredByLine(raw: RawQuestion): boolean {
   return raw.options.length >= 2 && raw.answerRaw !== undefined
 }
 
+/**
+ * Attach a bottom answer key to the questions parsed above it.
+ *
+ * Matching is by question number when every question carries a unique one;
+ * otherwise strictly positional, and only when the key numbers are exactly
+ * 1..N for the N questions found. Anything less certain than that assigns
+ * nothing and says so — a wrong answer silently attached to a question is far
+ * worse than a question reported as unanswered.
+ */
+function applyAnswerKey(
+  rawQuestions: RawQuestion[],
+  entries: AnswerKeyEntry[],
+  keyLine: number,
+  issues: ParseIssue[],
+): void {
+  if (rawQuestions.length === 0 || entries.length === 0) return
+
+  const numbers = rawQuestions.map((q) => q.number)
+  const numbered =
+    numbers.every((n): n is number => n !== undefined) &&
+    new Set(numbers).size === numbers.length
+
+  const byNumber = new Map<number, RawQuestion>()
+  if (numbered) {
+    rawQuestions.forEach((q) => byNumber.set(q.number as number, q))
+  } else {
+    // Positional fallback: only safe when the key is a complete 1..N list.
+    const keyNumbers = [...new Set(entries.map((e) => e.number))].sort((a, b) => a - b)
+    const isSequential =
+      keyNumbers.length === entries.length &&
+      keyNumbers.length === rawQuestions.length &&
+      keyNumbers.every((n, i) => n === i + 1)
+    if (!isSequential) {
+      issues.push({
+        line: keyLine,
+        message: `Answer key found, but its ${entries.length} entries couldn't be matched to the ${rawQuestions.length} question(s) detected — key ignored.`,
+        severity: 'warning',
+      })
+      return
+    }
+    rawQuestions.forEach((q, i) => byNumber.set(i + 1, q))
+  }
+
+  const seen = new Set<number>()
+  for (const entry of entries) {
+    if (seen.has(entry.number)) {
+      issues.push({
+        line: entry.line,
+        message: `Answer key lists question ${entry.number} more than once — entry ignored.`,
+        severity: 'warning',
+      })
+      continue
+    }
+    seen.add(entry.number)
+
+    const question = byNumber.get(entry.number)
+    if (!question) {
+      issues.push({
+        line: entry.line,
+        message: `Answer key entry ${entry.number} has no matching question — ignored.`,
+        severity: 'warning',
+      })
+      continue
+    }
+
+    question.keyAnswer = entry
+    // An inline answer or tick is the more local signal and wins; the key is
+    // still kept so a disagreement can be reported during validation.
+    if (question.answerRaw === undefined && question.checkedAnswers.length === 0) {
+      question.answerRaw = entry.raw
+      question.answerLine = entry.line
+      question.answerFromKey = true
+    }
+    if (entry.explanation && question.explanationLines.length === 0) {
+      question.explanationLines.push(entry.explanation)
+    }
+  }
+}
+
 export function parseMcqText(text: string): ParsedMcq {
-  const lines = text.replace(/\r\n?/g, '\n').split('\n')
+  const allLines = text.replace(/\r\n?/g, '\n').split('\n')
+
+  // A bottom answer key is split off before anything else: the state machine
+  // never sees it, so its entries can't be read as questions or options.
+  const answerKey = findAnswerKey(allLines)
+  const lines = answerKey ? allLines.slice(0, answerKey.startIndex) : allLines
   const classified = lines.map(classify)
 
   // Disambiguate numbered lines: a run of >=2 consecutive numbered lines is
@@ -342,7 +447,7 @@ export function parseMcqText(text: string): ParsedMcq {
   }
 
   for (let i = 0; i < lines.length; i++) {
-    const { kind, value, label } = classified[i]
+    const { kind, value, label, number } = classified[i]
     const lineNo = i + 1
 
     switch (kind) {
@@ -376,6 +481,7 @@ export function parseMcqText(text: string): ParsedMcq {
 
       case 'questionHeader':
         flush(lineNo)
+        current.number = number
         if (value !== '') current.questionLines.push(value)
         break
 
@@ -441,6 +547,7 @@ export function parseMcqText(text: string): ParsedMcq {
         } else {
           // Isolated number (or no question text yet) → new question header.
           flush(lineNo)
+          current.number = number
           current.questionLines.push(value)
         }
         break
@@ -465,6 +572,10 @@ export function parseMcqText(text: string): ParsedMcq {
     lastWasBlank = kind === 'blank' || kind === 'noise'
   }
   flush(lines.length)
+
+  if (answerKey) {
+    applyAnswerKey(rawQuestions, answerKey.entries, answerKey.startIndex + 1, issues)
+  }
 
   // --- validate + convert to QuizQuestion --------------------------------
   const questions: QuizQuestion[] = []
@@ -506,7 +617,9 @@ export function parseMcqText(text: string): ParsedMcq {
     if (raw.answerRaw === undefined && raw.checkedAnswers.length === 0) {
       issues.push({
         line: raw.startLine,
-        message: `"${excerpt}": no "Answer:" line found — skipped.`,
+        message: answerKey
+          ? `"${excerpt}": no "Answer:" line, and the answer key has no entry for it — skipped.`
+          : `"${excerpt}": no "Answer:" line found — skipped.`,
         severity: 'error',
       })
       skipped++
@@ -540,11 +653,30 @@ export function parseMcqText(text: string): ParsedMcq {
     if (correctAnswers === null || correctAnswers.length === 0) {
       issues.push({
         line: answerLine,
-        message: `"${excerpt}": answer "${answerDesc}" doesn't match any option — skipped.`,
+        message: raw.answerFromKey
+          ? `"${excerpt}": answer key entry "${answerDesc}" doesn't match any option — skipped.`
+          : `"${excerpt}": answer "${answerDesc}" doesn't match any option — skipped.`,
         severity: 'error',
       })
       skipped++
       continue
+    }
+
+    // Both an inline answer and a key entry: the inline one was used above, so
+    // a disagreement has to be surfaced rather than quietly resolved.
+    if (raw.keyAnswer && !raw.answerFromKey) {
+      const fromKey = resolveAnswers(raw.keyAnswer.raw, options)
+      const differs =
+        fromKey === null ||
+        fromKey.length !== correctAnswers.length ||
+        fromKey.some((o) => !correctAnswers.includes(o))
+      if (differs) {
+        issues.push({
+          line: raw.keyAnswer.line,
+          message: `"${excerpt}": the answer key says "${raw.keyAnswer.raw}" but the question's own answer says "${correctAnswers.join(', ')}" — the question's own answer was used.`,
+          severity: 'warning',
+        })
+      }
     }
 
     const explanation = raw.explanationLines.join(' ').trim()

@@ -4,7 +4,7 @@ A modern, fully client-side quiz platform built with **React**, **TypeScript**, 
 
 ## Features
 
-- **Plain-text MCQ import**: paste raw exam dumps or practice questions; a smart parser detects questions, options (A/B/C/D, a/b/c/d, numbered, bulleted), answers, explanations, and categories, with a live preview and per-line error/warning reporting. Common website and PDF clutter (ads, page numbers, "Show Answer" buttons, share widgets) is filtered out and reported as an ignored-lines count.
+- **Plain-text MCQ import**: paste raw exam dumps or practice questions; a smart parser detects questions, options (A/B/C/D, a/b/c/d, numbered, bulleted), answers (inline or from an answer key at the bottom of the paste), explanations, and categories, with a live preview and per-line error/warning reporting. Common website and PDF clutter (ads, page numbers, "Show Answer" buttons, share widgets) is filtered out and reported as an ignored-lines count.
 - **JSON import**: paste JSON into a textarea, with friendly validation errors
 - **Multiple correct answers**: a question whose answer line lists more than one option (`Answer: A, C`) automatically becomes a "select all that apply" question with tick boxes. Nothing to configure, and single-answer questions are unaffected.
 - **Check Answer**: every question can be checked on the spot — the correct answer is revealed, your selection is marked right or wrong (all of it, on a multi-answer question), and the question stays put for review. Optional, one-way, and the quiz never advances by itself.
@@ -184,6 +184,7 @@ Parsing rules:
 - **Answers** use `Answer:`, `Ans:`, `Correct Answer:`, or `Correct:` followed by a letter, number, or the option text itself
 - **Ticked answers** are also read: a line marked `✓` (or `✔`, `☑`) names the correct option, whether the tick sits on an option inside the list or repeats the winning option below it. Several ticked lines make the question a "select all that apply". An explicit `Answer:` line wins if both are present
 - **Multiple answers** are written as a list on the same answer line: `Answer: A, C`, `Answer: A and C`, `Answer: a, b, d`, `Answer: A; C`. Every part has to resolve to a distinct option, otherwise the line is treated as a single answer — so an option whose own text contains a comma (`Answer: Atomicity, Consistency, Isolation, Durability`) is still matched as one answer
+- **Bottom answer keys** are read too: put every question first and the answers in one block at the end, under a heading (`ANSWER KEY`, `ANSWERS`, `SOLUTIONS`, `Answers and Explanations`, …) or on their own. Entries look like `1. C`, `2 - A`, `3: B`, and may list several options (`4. A, C`) or carry an explanation (`5. C — Bedrock hosts foundation models`, or an `Explanation:` line under the entry). Entries are matched to questions by number, or by position when the questions aren't numbered and the key covers exactly all of them — anything less certain is reported instead of guessed. A question with its own `Answer:` line keeps it, and a disagreeing key entry is reported as a warning
 - **Explanations** use `Explanation:`, `Reason:`, `Rationale:`, `Because:`, or `Why:`
 - **Categories** use `Category:`, `Topic:`, or `Subject:`
 - Malformed questions are skipped with a per-line error message; the rest of the bank still loads

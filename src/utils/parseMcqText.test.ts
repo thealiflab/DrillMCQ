@@ -260,3 +260,268 @@ A language learning app wants shorter hints. Which parameter change enforces sho
     expect(parsed.issues[0].message).toContain("doesn't match any option")
   })
 })
+
+describe('bottom answer keys', () => {
+  /** Three numbered questions, none of which carries an answer of its own. */
+  const BANK = `1. Which AWS service stores objects?
+
+A. Amazon S3
+B. Amazon EC2
+C. Amazon Bedrock
+D. Amazon RDS
+
+2. Which AWS service runs virtual machines?
+
+A. Amazon S3
+B. Amazon EC2
+C. Amazon Bedrock
+D. Amazon RDS
+
+3. Which AWS service hosts foundation models?
+
+A. Amazon S3
+B. Amazon EC2
+C. Amazon Bedrock
+D. Amazon RDS
+`
+
+  const withKey = (key: string) => parseMcqText(`${BANK}\n${key}`)
+
+  it('reads a key introduced by an ANSWER KEY heading', () => {
+    const parsed = withKey('ANSWER KEY\n1. A\n2. B\n3. C')
+    expect(parsed.skipped).toBe(0)
+    expect(parsed.issues).toEqual([])
+    expect(parsed.questions.map((q) => q.correctAnswers)).toEqual([
+      ['Amazon S3'],
+      ['Amazon EC2'],
+      ['Amazon Bedrock'],
+    ])
+  })
+
+  it('reads dash- and colon-separated keys', () => {
+    expect(withKey('ANSWERS\n1 - A\n2 - B\n3 - C').questions.map((q) => q.correctAnswers)).toEqual([
+      ['Amazon S3'],
+      ['Amazon EC2'],
+      ['Amazon Bedrock'],
+    ])
+    expect(withKey('SOLUTIONS\n1: A\n2: B\n3: C').questions.map((q) => q.correctAnswers)).toEqual([
+      ['Amazon S3'],
+      ['Amazon EC2'],
+      ['Amazon Bedrock'],
+    ])
+  })
+
+  it('reads a key with no heading at all', () => {
+    const parsed = withKey('1. A\n2. B\n3. C')
+    expect(parsed.skipped).toBe(0)
+    expect(parsed.questions).toHaveLength(3)
+    expect(parsed.questions[2].correctAnswers).toEqual(['Amazon Bedrock'])
+  })
+
+  it('does not count the key section as ignored clutter', () => {
+    expect(withKey('ANSWER KEY\n1. A\n2. B\n3. C').ignored).toBe(0)
+  })
+
+  it('makes a multi-answer entry a multi-answer question', () => {
+    const parsed = withKey('ANSWER KEY\n1. A, C\n2. B and D\n3. C')
+    expect(parsed.questions.map((q) => q.correctAnswers)).toEqual([
+      ['Amazon S3', 'Amazon Bedrock'],
+      ['Amazon EC2', 'Amazon RDS'],
+      ['Amazon Bedrock'],
+    ])
+  })
+
+  it('takes an explanation from the key line', () => {
+    const parsed = withKey('ANSWER KEY\n1. A — S3 is object storage.\n2. B\n3. C')
+    expect(parsed.questions[0].explanation).toBe('S3 is object storage.')
+    expect(parsed.questions[1].explanation).toBeUndefined()
+  })
+
+  it('takes an explanation from an Explanation: line under the entry', () => {
+    const parsed = withKey('ANSWER KEY\n1. A\nExplanation: S3 is object storage.\n2. B\n3. C')
+    expect(parsed.questions[0].explanation).toBe('S3 is object storage.')
+  })
+
+  it('matches by question number, not by position', () => {
+    const parsed = withKey('ANSWER KEY\n3. C\n1. A\n2. B')
+    expect(parsed.questions.map((q) => q.correctAnswers)).toEqual([
+      ['Amazon S3'],
+      ['Amazon EC2'],
+      ['Amazon Bedrock'],
+    ])
+  })
+
+  it('matches "Q1."-style and titled headers by their number', () => {
+    const parsed = parseMcqText(`Q1. Which planet is the largest?
+A. Mars
+B. Jupiter
+
+Sample Exam Question 2
+Which planet is closest to the sun?
+A. Mercury
+B. Venus
+
+ANSWER KEY
+1. B
+2. A`)
+    expect(parsed.questions.map((q) => q.correctAnswers)).toEqual([['Jupiter'], ['Mercury']])
+  })
+
+  it('fills only the questions that have no answer of their own', () => {
+    const parsed = parseMcqText(`1. Which AWS service stores objects?
+A. Amazon S3
+B. Amazon EC2
+
+Answer: A
+
+2. Which AWS service runs virtual machines?
+A. Amazon S3
+B. Amazon EC2
+
+ANSWER KEY
+1. A
+2. B`)
+    expect(parsed.issues).toEqual([])
+    expect(parsed.questions.map((q) => q.correctAnswers)).toEqual([['Amazon S3'], ['Amazon EC2']])
+  })
+
+  it('keeps the inline answer and warns when the key disagrees', () => {
+    const parsed = parseMcqText(`1. Which AWS service stores objects?
+A. Amazon S3
+B. Amazon EC2
+
+Answer: A
+
+2. Which AWS service runs virtual machines?
+A. Amazon S3
+B. Amazon EC2
+
+ANSWER KEY
+1. B
+2. B`)
+    expect(parsed.questions[0].correctAnswers).toEqual(['Amazon S3'])
+    expect(parsed.issues).toHaveLength(1)
+    expect(parsed.issues[0].severity).toBe('warning')
+    expect(parsed.issues[0].message).toContain('the answer key says "B"')
+  })
+
+  it('maps positionally when the questions are not numbered', () => {
+    const parsed = parseMcqText(`Which planet is the largest?
+A. Mars
+B. Jupiter
+
+Which planet is closest to the sun?
+A. Mercury
+B. Venus
+
+ANSWER KEY
+1. B
+2. A`)
+    expect(parsed.skipped).toBe(0)
+    expect(parsed.questions.map((q) => q.correctAnswers)).toEqual([['Jupiter'], ['Mercury']])
+  })
+
+  it('ignores the key rather than guessing when unnumbered questions do not line up', () => {
+    const parsed = parseMcqText(`Which planet is the largest?
+A. Mars
+B. Jupiter
+
+Which planet is closest to the sun?
+A. Mercury
+B. Venus
+
+ANSWER KEY
+1. B
+2. A
+3. A`)
+    expect(parsed.questions).toHaveLength(0)
+    expect(parsed.skipped).toBe(2)
+    const warnings = parsed.issues.filter((i) => i.severity === 'warning')
+    expect(warnings).toHaveLength(1)
+    expect(warnings[0].message).toContain("couldn't be matched")
+  })
+
+  it('reports a key entry that has no question', () => {
+    const parsed = withKey('ANSWER KEY\n1. A\n2. B\n3. C\n4. D')
+    expect(parsed.questions).toHaveLength(3)
+    expect(parsed.issues.map((i) => i.message)).toContain(
+      'Answer key entry 4 has no matching question — ignored.',
+    )
+  })
+
+  it('reports a duplicated key entry and keeps the first', () => {
+    const parsed = withKey('ANSWER KEY\n1. A\n1. B\n2. B\n3. C')
+    expect(parsed.questions[0].correctAnswers).toEqual(['Amazon S3'])
+    expect(parsed.issues.map((i) => i.message)).toContain(
+      'Answer key lists question 1 more than once — entry ignored.',
+    )
+  })
+
+  it('skips a question whose key entry matches no option, keeping the rest', () => {
+    const parsed = withKey('ANSWER KEY\n1. A\n2. H\n3. C')
+    expect(parsed.skipped).toBe(1)
+    expect(parsed.questions.map((q) => q.question)).toEqual([
+      'Which AWS service stores objects?',
+      'Which AWS service hosts foundation models?',
+    ])
+    const errors = parsed.issues.filter((i) => i.severity === 'error')
+    expect(errors[0].message).toContain('answer key entry "H" doesn\'t match any option')
+  })
+
+  it('reports a question the key does not cover', () => {
+    const parsed = withKey('ANSWER KEY\n1. A\n2. B')
+    expect(parsed.questions).toHaveLength(2)
+    expect(parsed.skipped).toBe(1)
+    const errors = parsed.issues.filter((i) => i.severity === 'error')
+    expect(errors[0].message).toContain('the answer key has no entry for it')
+  })
+
+  it('leaves a paste without a key exactly as it was', () => {
+    const parsed = parseMcqText(`${OS_BLOCK}\nAnswer: A, C`)
+    expect(parsed.questions).toHaveLength(1)
+    expect(parsed.questions[0].correctAnswers).toEqual(['Windows', 'Linux'])
+  })
+
+  it('does not mistake a trailing numbered option list for a key', () => {
+    const parsed = parseMcqText(`Which of these is a database?
+
+1. Amazon S3
+2. Amazon RDS
+3. Amazon EC2
+
+Answer: 2`)
+    expect(parsed.questions).toHaveLength(1)
+    expect(parsed.questions[0].options).toHaveLength(3)
+    expect(parsed.questions[0].correctAnswers).toEqual(['Amazon RDS'])
+  })
+
+  it('does not mistake trailing numbered questions for a key', () => {
+    const parsed = parseMcqText(`${OS_BLOCK}
+Answer: A
+
+2. Which planet is the largest?
+A. Mars
+B. Jupiter
+Answer: B`)
+    expect(parsed.questions).toHaveLength(2)
+    expect(parsed.questions[1].correctAnswers).toEqual(['Jupiter'])
+  })
+
+  it('reads a key that follows checkbox-marked questions', () => {
+    const parsed = parseMcqText(`1. Which planet is the largest?
+
+❏ A. Mars
+❏ B. Jupiter
+
+2. Which planet is closest to the sun?
+
+❏ A. Mercury
+❏ B. Venus
+
+ANSWER KEY
+1. B
+2. A`)
+    expect(parsed.skipped).toBe(0)
+    expect(parsed.questions.map((q) => q.correctAnswers)).toEqual([['Jupiter'], ['Mercury']])
+  })
+})

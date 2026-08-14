@@ -40,7 +40,7 @@ import {
   buildAIJsonRepairPrompt,
 } from '../utils/ai/buildAIJsonRepairPrompt'
 import { chunkRawJson, mergeJsonChunks } from '../utils/ai/chunkRawJson'
-import { chunkRawText } from '../utils/ai/chunkRawText'
+import { chunkTextWithAnswerKey } from '../utils/ai/chunkTextWithAnswerKey'
 import {
   validateExplanationResponse,
   validateFormattingResponse,
@@ -539,7 +539,9 @@ export function useAI() {
   /** Workflow C — tidy up pasted plain text for `parseMcqText`. */
   const formatText = useCallback(
     async (rawText: string): Promise<AIFormattingResult | null> =>
-      runRewrite(chunkRawText(rawText, FORMATTING_CHUNK_CHARS), {
+      // Chunking keeps a bottom answer key with the questions it answers, so a
+      // chunk never arrives at the model as questions with their answers cut off.
+      runRewrite(chunkTextWithAnswerKey(rawText, FORMATTING_CHUNK_CHARS), {
         kind: 'formatting',
         system: AI_FORMATTING_SYSTEM,
         schema: AI_FORMATTING_SCHEMA as unknown as Record<string, unknown>,
