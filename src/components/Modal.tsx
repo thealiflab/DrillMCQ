@@ -5,7 +5,12 @@ interface ModalProps {
   /** Id of the element naming the dialog. */
   labelledBy: string
   describedBy?: string
-  onClose: () => void
+  /**
+   * Omit for a dialog the user cannot dismiss: the backdrop stops responding to
+   * clicks and Escape does nothing, while the Tab trap still keeps focus inside.
+   * Used while an AI request is in flight, where leaving would lose the paste.
+   */
+  onClose?: () => void
   /**
    * Focused on mount. Without it focus goes to the first focusable element,
    * which for a destructive dialog should be its Cancel button.
@@ -51,8 +56,10 @@ export function Modal({
   useEffect(() => {
     const handler = (event: KeyboardEvent) => {
       if (event.key === 'Escape') {
+        // Swallowed either way: a non-dismissible dialog must not let Escape
+        // reach the screen behind it.
         event.stopPropagation()
-        onClose()
+        onClose?.()
         return
       }
       if (event.key !== 'Tab') return
@@ -76,6 +83,8 @@ export function Modal({
     <div
       className="fixed inset-0 z-50 flex items-end justify-center bg-slate-900/50 p-3 backdrop-blur-sm sm:items-center sm:p-4"
       onClick={onClose}
+      // The backdrop covers the whole viewport, so it is also what stops clicks
+      // reaching the page — that holds whether or not it closes anything.
     >
       <div
         ref={panelRef}

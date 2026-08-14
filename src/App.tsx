@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { AIAnswerExplanation } from './components/AIAnswerExplanation'
+import { AIBusyOverlay } from './components/AIBusyOverlay'
 import { AISettings } from './components/AISettings'
 import { AIVerificationPanel } from './components/AIVerificationPanel'
 import { AppNav } from './components/AppNav'
@@ -24,6 +25,7 @@ import { useTheme } from './hooks/useTheme'
 import { useTimer } from './hooks/useTimer'
 import { PROVIDERS } from './services/ai/models'
 import { isStorageAvailable } from './services/storage'
+import type { AIRequestKind } from './types/ai'
 import type { View } from './types/navigation'
 import type { QuizAttempt, QuizQuestion, QuizSession, SavedQuiz } from './types/quiz'
 import {
@@ -37,6 +39,16 @@ import { isMultiAnswer, isQuestionLocked, isRevealed } from './utils/quiz'
 
 /** How many entries the home dashboard's "recent results" strip shows. */
 const RECENT_RESULTS_LIMIT = 5
+
+/**
+ * AI workflows that block the screen while they run.
+ *
+ * These three are started from the import and setup screens, where the pasted
+ * text and the pending questions live in component state — navigating away or
+ * switching importer tab mid-request would throw both away. An `explanation` is
+ * deliberately absent: it can't lose anything, so the results screen stays usable.
+ */
+const BLOCKING_AI_KINDS = new Set<AIRequestKind>(['formatting', 'json-repair', 'verification'])
 
 export default function App() {
   const { theme, toggleTheme } = useTheme()
@@ -264,6 +276,11 @@ export default function App() {
         />
       )}
       {aiSettingsOpen && <AISettings ai={ai} onClose={() => setAiSettingsOpen(false)} />}
+      {/* Last, so it covers the settings dialogs too — an AI request started
+          from one of them must not be interrupted by closing it. */}
+      {ai.active !== null && BLOCKING_AI_KINDS.has(ai.active.kind) && (
+        <AIBusyOverlay active={ai.active} onCancel={ai.cancel} />
+      )}
     </>
   )
 
