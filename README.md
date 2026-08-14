@@ -189,6 +189,45 @@ Parsing rules:
 - **Categories** use `Category:`, `Topic:`, or `Subject:`
 - Malformed questions are skipped with a per-line error message; the rest of the bank still loads
 
+### Prompt template for AI-generated questions
+
+Want a chatbot to write the questions? Copy the block below (hover it and click
+the copy icon), type your topic on the first line, and send it to ChatGPT,
+Claude, Gemini, or any other assistant. Paste the reply straight into the
+**Plain text** tab — no clean-up needed.
+
+```text
+Topic: 
+Number of questions: 10
+
+Write multiple-choice questions on the topic above.
+
+Output plain text only. No markdown, no bold, no bullet symbols, no code
+fences, no introduction and no closing remarks — just the questions in exactly
+this format:
+
+1. Question text goes here?
+A. First option
+B. Second option
+C. Third option
+D. Fourth option
+Answer: B
+Explanation: One short sentence on why that option is correct.
+
+Rules:
+- Number the questions 1, 2, 3, … and label the options A, B, C, D.
+- Put one blank line between questions.
+- "Answer:" repeats the letter of the correct option. If more than one option is
+  correct, list every correct letter: "Answer: A, C".
+- "Explanation:" is one line and optional.
+- You may add a "Category: <name>" line under a question to group it by subtopic.
+```
+
+The **Plain text** tab previews exactly what was parsed before you generate the
+quiz, so you can see the question count, any skipped blocks, and warnings first.
+If a reply still comes back messy, the optional **Format with AI** button can
+tidy it up in place.
+
 ### Quiz JSON schema
 
 The app accepts an **array of question objects**:
