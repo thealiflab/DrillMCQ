@@ -1,5 +1,5 @@
 import { findAnswerKey, type AnswerKeyEntry } from '../answerKey'
-import { chunkRawText } from './chunkRawText'
+import { chunkRawText, countQuestionStarts, splitQuestionUnits } from './chunkRawText'
 
 /**
  * Chunk a raw paste for the formatting workflow, keeping a bottom answer key
@@ -34,11 +34,38 @@ export function chunkTextWithAnswerKey(text: string, maxChars: number): string[]
   // also the only thing that can work when the questions aren't numbered.
   if (chunks.length === 1) return [`${chunks[0]}\n\n${keyText}`]
 
-  return chunks.map((chunk) => {
+  const byNumber = chunks.map((chunk) => {
     const numbers = questionNumbersIn(chunk)
-    const entries = key.entries.filter((entry) => numbers.has(entry.number))
-    return entries.length === 0 ? chunk : `${chunk}\n\n${renderKey(entries)}`
+    return key.entries.filter((entry) => numbers.has(entry.number))
   })
+
+  // Nothing matched by number — the questions carry none. Fall back to handing
+  // out the entries in order, but only when the questions counted across the
+  // chunks agree exactly with the number of entries; a mismatch means we cannot
+  // say which answer belongs where, and a wrong answer is worse than none.
+  if (byNumber.every((entries) => entries.length === 0)) {
+    // Numbered starts where there are any, question units otherwise (an
+    // unnumbered bank). Either count can be wrong on a strange paste, which is
+    // what the total check below is for.
+    const counts = chunks.map((chunk) => countQuestionStarts(chunk) || splitQuestionUnits(chunk).length)
+    const total = counts.reduce((sum, n) => sum + n, 0)
+    if (total !== key.entries.length) return chunks
+
+    let offset = 0
+    return chunks.map((chunk, i) => {
+      const slice = key.entries.slice(offset, offset + counts[i])
+      offset += counts[i]
+      // Renumbered 1..n: within the chunk the entries line up with the questions
+      // in order, which is what the prompt tells the model to rely on.
+      return slice.length === 0
+        ? chunk
+        : `${chunk}\n\n${renderKey(slice.map((entry, j) => ({ ...entry, number: j + 1 })))}`
+    })
+  }
+
+  return chunks.map((chunk, i) =>
+    byNumber[i].length === 0 ? chunk : `${chunk}\n\n${renderKey(byNumber[i])}`,
+  )
 }
 
 const KEY_HEADING = 'ANSWER KEY'

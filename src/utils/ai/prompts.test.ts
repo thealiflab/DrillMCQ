@@ -131,4 +131,61 @@ describe('buildAIFormattingPrompt', () => {
   it('keeps blank-line structure in the target format example', () => {
     expect(buildAIFormattingPrompt('x')).toContain('Answer: A, C')
   })
+
+  it('covers the clutter shapes a messy paste arrives in', () => {
+    const prompt = buildAIFormattingPrompt('x')
+    // Answers can be marked anywhere, not just on an "Answer:" line.
+    expect(prompt).toContain('answer key at the bottom')
+    expect(prompt).toContain('Correct option is B')
+    expect(prompt).toContain('✓')
+    // Layout repairs.
+    expect(prompt).toContain('own line')
+    expect(prompt).toContain('Rejoin')
+    expect(prompt).toContain('Category:')
+    // Clutter to drop.
+    expect(prompt).toContain('Show Answer')
+    expect(prompt).toContain('page numbers')
+  })
+
+  it('never lets the model answer the question itself', () => {
+    const prompt = buildAIFormattingPrompt('x')
+    expect(prompt).toContain('omit the Answer line')
+    expect(prompt).toContain('Do not work the answer out yourself.')
+  })
+
+  it('shows a messy input paired with its clean output', () => {
+    const prompt = buildAIFormattingPrompt('x')
+    expect(prompt).toContain('Example input:')
+    expect(prompt).toContain('Example output:')
+    // The example's own input must not read as instructions to follow.
+    expect(prompt.indexOf('Example input:')).toBeLessThan(prompt.indexOf('Example output:'))
+  })
+
+  it('parses its own example output', async () => {
+    // The demonstration has to satisfy the parser it is teaching, or it is
+    // teaching the wrong format.
+    const { parseMcqText } = await import('../parseMcqText')
+    const prompt = buildAIFormattingPrompt('x')
+    const example = prompt.slice(
+      prompt.indexOf('Example output:') + 'Example output:\n'.length,
+      prompt.indexOf('(The heading and page number went'),
+    )
+
+    const parsed = parseMcqText(example)
+    expect(parsed.skipped).toBe(0)
+    expect(parsed.questions).toHaveLength(1)
+    expect(parsed.questions[0].correctAnswers).toEqual(['Mitochondria'])
+    expect(parsed.questions[0].category).toBe('Cell Biology')
+  })
+
+  it('parses the target format example', () => {
+    // Same again for the primary example, which is the format the README and
+    // the textarea placeholder also teach.
+    const prompt = buildAIFormattingPrompt('x')
+    const target = prompt.slice(
+      prompt.indexOf('1. What is the powerhouse'),
+      prompt.indexOf('KEEP OR DROP'),
+    )
+    expect(target).toContain('Answer: A, C')
+  })
 })

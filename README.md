@@ -361,7 +361,7 @@ Once it is on, four optional actions appear:
 
 | Where | Action | What it does |
 | ----- | ------ | ------------ |
-| Paste screen · Plain text | **✨ Format with AI** | Tidies a messy paste into the format the parser expects. The result goes back into the text box — the normal parser still does the actual importing, and you can undo it. |
+| Paste screen · Plain text | **✨ Format with AI** | Tidies a messy paste into the format the parser expects: chapter headings become `Category:` lines, page numbers and site chrome go, options crammed onto one line are split out, labels of any kind become `A.`–`D.`, and a correct option marked with a tick, an asterisk or a bottom answer key becomes an `Answer:` line. Anything that can't be a question (no options, fill-in-the-blank) is dropped and listed in the notes. The result goes back into the text box — the normal parser still does the actual importing, the panel says how many questions it found compared with before, and you can undo it. |
 | Paste screen · JSON | **✨ Fix JSON with AI** | Repairs broken or off-schema quiz JSON (trailing commas, missing fields, answers that don't match an option). The result goes back into the text box and is re-validated immediately, so a repair that didn't work says so straight away — and you can undo it. |
 | After importing | **Verify answers** | The AI works out each answer itself and flags where it disagrees with your source. Useful for question banks scraped from the web, which often carry the wrong key. |
 | Results screen | **🤖 Ask AI** | Explains why the correct answer is correct, why yours was wrong, and whether the source answer itself looks mistaken. |

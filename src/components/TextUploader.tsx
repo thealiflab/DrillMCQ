@@ -66,6 +66,16 @@ export function TextUploader({ onLoad, ai }: TextUploaderProps) {
   const deferredText = useDeferredValue(text)
   const parsed = useMemo(() => parseMcqText(deferredText), [deferredText])
 
+  // What the same parser made of the paste *before* the AI touched it, so the
+  // panel below can state plainly whether the rewrite was an improvement.
+  const parsedBefore = useMemo(
+    () => (preAiText === null ? null : parseMcqText(preAiText)),
+    [preAiText],
+  )
+  const aiHelped =
+    parsedBefore === null ||
+    (parsed.questions.length > 0 && parsed.questions.length >= parsedBefore.questions.length)
+
   const warnings = parsed.issues.filter((i) => i.severity === 'warning')
   const hasInput = deferredText.trim() !== ''
 
@@ -177,6 +187,22 @@ export function TextUploader({ onLoad, ai }: TextUploaderProps) {
                   Dismiss
                 </button>
               </div>
+              {/* The verdict, from the normal parser: did this actually help? */}
+              {parsedBefore !== null && (
+                <p
+                  className={`mt-2 text-sm font-medium ${
+                    aiHelped
+                      ? 'text-green-700 dark:text-green-400'
+                      : 'text-amber-700 dark:text-amber-400'
+                  }`}
+                >
+                  {aiHelped
+                    ? `${parsed.questions.length} question${parsed.questions.length === 1 ? '' : 's'} detected (was ${parsedBefore.questions.length})` +
+                      (parsed.skipped > 0 ? ` · ${parsed.skipped} still skipped` : ' · none skipped')
+                    : 'This didn’t parse any better than what you pasted — undo and try again, or fix it by hand below.'}
+                </p>
+              )}
+
               {formatting.notes.length > 0 && (
                 <ul className="mt-2 list-disc space-y-1 pl-5 text-xs text-slate-600 dark:text-slate-400">
                   {formatting.notes.map((note) => (
