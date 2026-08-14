@@ -18,6 +18,7 @@ import { SaveQuizPanel } from './components/SaveQuizPanel'
 import { SettingsDialog } from './components/SettingsDialog'
 import { StepIndicator } from './components/StepIndicator'
 import { useAI } from './hooks/useAI'
+import { useAppearance } from './hooks/useAppearance'
 import { useQuiz } from './hooks/useQuiz'
 import { useQuizHistory } from './hooks/useQuizHistory'
 import { useSavedQuizzes } from './hooks/useSavedQuizzes'
@@ -52,6 +53,7 @@ const BLOCKING_AI_KINDS = new Set<AIRequestKind>(['formatting', 'json-repair', '
 
 export default function App() {
   const { theme, toggleTheme } = useTheme()
+  const { appearance, updateAppearance, resetAppearance } = useAppearance()
   const quiz = useQuiz()
   const library = useSavedQuizzes()
   const history = useQuizHistory()
@@ -262,6 +264,9 @@ export default function App() {
         <SettingsDialog
           theme={theme}
           onToggleTheme={toggleTheme}
+          appearance={appearance}
+          onAppearanceChange={updateAppearance}
+          onResetAppearance={resetAppearance}
           aiStatus={
             ai.ready
               ? `On · ${PROVIDERS[ai.config.provider].label} · ${ai.requestCount} request(s) this session.`
