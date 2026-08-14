@@ -9,8 +9,172 @@
     'Helvetica Neue', Arial, sans-serif;
 }
 
+/*
+ * User appearance preferences.
+ *
+ * All three are token overrides on <html>, written by `applyAppearance` in
+ * utils/appearance.ts. Nothing here touches a component, because Tailwind v4
+ * already compiles every utility to a variable — `bg-white` is
+ * `background-color: var(--color-white)`, and `bg-slate-100/85` is a
+ * `color-mix` of the same variable — so retinting a token retints all ~57
+ * surfaces at once, opacity variants included.
+ */
+
 html {
   scroll-behavior: smooth;
+  /* `100%` rather than `1rem` so the user's own browser font-size setting stays
+     the baseline we scale from. Every length in the app is rem, so the whole
+     layout follows. Tailwind's `md:` breakpoints are rem-in-media-query, which
+     resolve against the initial 16px — they deliberately do *not* shift here,
+     so enlarging the text never flips the app into its desktop layout. */
+  font-size: calc(100% * var(--app-font-scale, 1));
+}
+
+/*
+ * Font family. Preflight sets `html { font-family: var(--default-font-family) }`
+ * and the theme defines that as `var(--font-sans)`, so overriding --font-sans
+ * on a more specific selector retargets the entire app.
+ *
+ * System stacks only: the app makes no network requests, and a webfont would
+ * break that (and flash) for a preference the user changes in one click.
+ *
+ * The selectors are deliberately NOT prefixed with `html`, so a
+ * `<span data-font='serif'>` in Settings can preview a stack without the
+ * stylesheet's values being duplicated into TypeScript.
+ */
+/* Restates the @theme stack for the same reason `[data-bg='default']` restates
+   the slate ramp: the Settings buttons preview a face by nesting `data-font`,
+   and without this the "Sans" button would render in the active font. */
+[data-font='sans'] {
+  --font-sans:
+    'Inter', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial,
+    sans-serif;
+}
+
+[data-font='serif'] {
+  --font-sans: ui-serif, Georgia, Cambria, 'Times New Roman', Times, serif;
+}
+
+[data-font='mono'] {
+  --font-sans:
+    ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace;
+}
+
+/* Wide letterforms, tall x-height. Atkinson Hyperlegible if the reader happens
+   to have it installed; otherwise the most legible faces present everywhere. */
+[data-font='readable'] {
+  --font-sans:
+    'Atkinson Hyperlegible', Verdana, Tahoma, 'Trebuchet MS', ui-sans-serif, system-ui, sans-serif;
+}
+
+/*
+ * Background presets, which compose with the dark toggle rather than replacing
+ * it — each defines a light and a dark variant.
+ *
+ * The scoping is load-bearing: a preset may only override a token that is a
+ * *background* in the mode it targets. `--color-white` backs `text-white` as
+ * well as `bg-white`, so it is retinted only in light mode (where white is a
+ * surface); in dark mode it stays pure white and keeps button labels crisp.
+ * `default` has no rule at all — it is the palette as shipped.
+ */
+/*
+ * `default` restates the shipped ramp rather than defining nothing.
+ *
+ * On <html> it is redundant. It exists for the Settings swatches, which preview
+ * a preset by nesting `<span data-bg='…'>`: without this rule the Slate swatch
+ * would inherit whichever preset is currently active and advertise the wrong
+ * palette. Values are Tailwind's own slate scale, copied from the compiled
+ * stylesheet — `utils/appearance.test.ts` fails if they go missing.
+ */
+[data-bg='default'] {
+  --color-white: #fff;
+  --color-slate-50: oklch(98.4% 0.003 247.858);
+  --color-slate-100: oklch(96.8% 0.007 247.896);
+  --color-slate-200: oklch(92.9% 0.013 255.508);
+  --color-slate-300: oklch(86.9% 0.022 252.894);
+  --color-slate-400: oklch(70.4% 0.04 256.788);
+  --color-slate-500: oklch(55.4% 0.046 257.417);
+  --color-slate-600: oklch(44.6% 0.043 257.281);
+  --color-slate-700: oklch(37.2% 0.044 257.287);
+  --color-slate-800: oklch(27.9% 0.041 260.031);
+  --color-slate-900: oklch(20.8% 0.042 265.755);
+  --color-slate-950: oklch(12.9% 0.042 264.695);
+}
+
+[data-bg='warm']:not(.dark) {
+  --color-white: #fbf5e7;
+  --color-slate-50: #f5eeda;
+  --color-slate-100: #efe6d3;
+  --color-slate-200: #ddd0b4;
+  --color-slate-300: #cdbc9b;
+  --color-slate-500: #7b6c55;
+  --color-slate-600: #6b5c46;
+  --color-slate-900: #2b2318;
+}
+
+[data-bg='warm'].dark {
+  --color-slate-950: #16120d;
+  --color-slate-900: #221c15;
+  --color-slate-800: #3a3125;
+  --color-slate-700: #4b4030;
+  --color-slate-400: #a2937c;
+  --color-slate-100: #efe4d2;
+}
+
+[data-bg='cool']:not(.dark) {
+  --color-white: #f8fbff;
+  --color-slate-50: #eff5fc;
+  --color-slate-100: #e4eef7;
+  --color-slate-200: #cbdcee;
+  --color-slate-300: #a9c4de;
+  --color-slate-500: #557496;
+  --color-slate-600: #42607f;
+  --color-slate-900: #0d1f33;
+}
+
+[data-bg='cool'].dark {
+  --color-slate-950: #04101c;
+  --color-slate-900: #0b1c2d;
+  --color-slate-800: #16324b;
+  --color-slate-700: #21445f;
+  --color-slate-400: #8ea9c4;
+  --color-slate-100: #dceaf7;
+}
+
+/* Maximum legibility: page and card surface become the same white, so the
+   border ramp is strengthened to keep a card still reading as a card. */
+[data-bg='contrast']:not(.dark) {
+  --color-white: #ffffff;
+  --color-slate-50: #f4f4f5;
+  --color-slate-100: #ffffff;
+  --color-slate-200: #94a3b8;
+  --color-slate-300: #64748b;
+  --color-slate-500: #1f2937;
+  --color-slate-600: #111827;
+  --color-slate-900: #000000;
+}
+
+[data-bg='contrast'].dark {
+  --color-slate-950: #000000;
+  --color-slate-900: #0a0a0a;
+  --color-slate-800: #71717a;
+  --color-slate-700: #a1a1aa;
+  --color-slate-400: #d4d4d8;
+  --color-slate-100: #ffffff;
+}
+
+/*
+ * The one place a preset override has to be undone.
+ *
+ * `text-white` shares --color-white with `bg-white`, so retinting the card
+ * surface in a light preset would also tint every button label sitting on
+ * indigo/red/green — dirty-cream text that reads as a rendering bug. Re-pin the
+ * foreground: white text is white in every preset. Verified by grep that
+ * `bg-white`, `bg-white/{20,25,50,70,95}` and `text-white` are the only white
+ * utilities in use, so this single rule closes the whole hazard.
+ */
+.text-white {
+  color: #fff;
 }
 
 /* Keeps the fixed bottom navigation (and the quiz's sticky action bar) clear

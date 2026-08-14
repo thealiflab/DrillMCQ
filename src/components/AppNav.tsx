@@ -48,7 +48,12 @@ export function AppNav({
           </button>
 
           {/* Desktop destinations. The phone gets these in the bottom bar. */}
-          <nav aria-label="Main" className="ml-4 hidden flex-1 items-center gap-1 md:flex">
+          {/* `min-w-0` because the breakpoint does not move when the user
+              enlarges the text: Tailwind's `md:` is rem-in-media-query, which
+              resolves against the initial 16px, so at a large text size this
+              row is ~30% wider at the same 768px. Shrinking rather than
+              overflowing is the graceful failure. */}
+          <nav aria-label="Main" className="ml-4 hidden min-w-0 flex-1 items-center gap-1 md:flex">
             {VIEWS.map((item) => {
               const active = view === item.id
               return (
