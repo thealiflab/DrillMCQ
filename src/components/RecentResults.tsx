@@ -1,14 +1,26 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
+import type { SaveAttemptResult } from '../hooks/useSavedQuizzes'
 import type { QuizAttempt } from '../types/quiz'
 import { formatDateTime, formatRelativeDay } from '../utils/library'
 import { ConfirmDialog } from './ConfirmDialog'
+import type { MenuAction } from './OverflowMenu'
 import { OverflowMenu } from './OverflowMenu'
+
+/** How long the "Saved to Quiz Library" confirmation stays up. */
+const FEEDBACK_MS = 5000
 
 interface RecentResultsProps {
   /** Newest first; the caller decides how many to pass. */
   attempts: QuizAttempt[]
   onReview: (attempt: QuizAttempt) => void
   onDelete: (attempt: QuizAttempt) => void
+  /**
+   * Files the attempt's questions in the Quiz Library. Omitted only if a caller
+   * wants a read-only list; when omitted the menu item isn't offered at all.
+   */
+  onSaveToLibrary?: (attempt: QuizAttempt) => SaveAttemptResult
+  /** Whether this attempt's questions are already in the library. */
+  isInLibrary?: (attempt: QuizAttempt) => boolean
   heading?: string
   subheading?: string
   /**
@@ -31,12 +43,53 @@ export function RecentResults({
   attempts,
   onReview,
   onDelete,
+  onSaveToLibrary,
+  isInLibrary,
   heading = 'Recent results',
   subheading,
   emptyState,
   onSeeAll,
 }: RecentResultsProps) {
   const [pendingDelete, setPendingDelete] = useState<QuizAttempt | null>(null)
+  const [feedback, setFeedback] = useState<SaveAttemptResult | null>(null)
+
+  // The confirmation clears itself so it can't linger over an unrelated action
+  // later in the session. Re-saving restarts the timer, because `feedback` is
+  // a new object each time.
+  useEffect(() => {
+    if (feedback === null) return
+    const timer = window.setTimeout(() => setFeedback(null), FEEDBACK_MS)
+    return () => window.clearTimeout(timer)
+  }, [feedback])
+
+  const handleSave = (attempt: QuizAttempt) => {
+    if (onSaveToLibrary === undefined) return
+    setFeedback(onSaveToLibrary(attempt))
+  }
+
+  /**
+   * "Save to Quiz Library" turns into a disabled "Already saved" rather than
+   * disappearing, so the row's actions don't move around and the state is
+   * visible instead of merely implied.
+   */
+  const buildActions = (attempt: QuizAttempt): MenuAction[] => {
+    const actions: MenuAction[] = [{ label: 'Review answers', onSelect: () => onReview(attempt) }]
+
+    if (onSaveToLibrary !== undefined) {
+      const saved = isInLibrary?.(attempt) ?? false
+      actions.push({
+        label: saved ? 'Already saved' : 'Save to Quiz Library',
+        onSelect: () => handleSave(attempt),
+        disabled: saved,
+        title: saved
+          ? 'These questions are already in your Quiz Library.'
+          : 'Keep these questions in your library so you can retake them.',
+      })
+    }
+
+    actions.push({ label: 'Delete', onSelect: () => setPendingDelete(attempt), danger: true })
+    return actions
+  }
 
   if (attempts.length === 0 && emptyState === undefined) return null
 
@@ -62,6 +115,24 @@ export function RecentResults({
         )}
       </div>
 
+      {feedback !== null && (
+        <p
+          role="status"
+          className="animate-fade-slide-in rounded-2xl border border-green-300 bg-green-50 px-4 py-3 text-sm text-green-800 dark:border-green-900 dark:bg-green-950/50 dark:text-green-400"
+        >
+          {feedback.status === 'saved' ? (
+            <>
+              Saved to Quiz Library as <strong>{feedback.quiz.name}</strong>.
+            </>
+          ) : (
+            <>
+              Already in your Quiz Library as <strong>{feedback.quiz.name}</strong> — nothing was
+              duplicated.
+            </>
+          )}
+        </p>
+      )}
+
       {attempts.length === 0 ? (
         emptyState
       ) : (
@@ -86,10 +157,7 @@ export function RecentResults({
               </button>
               <OverflowMenu
                 label={`More actions for the ${attempt.quizName} attempt from ${formatDateTime(attempt.completedAt)}`}
-                actions={[
-                  { label: 'Review answers', onSelect: () => onReview(attempt) },
-                  { label: 'Delete', onSelect: () => setPendingDelete(attempt), danger: true },
-                ]}
+                actions={buildActions(attempt)}
               />
             </li>
           ))}

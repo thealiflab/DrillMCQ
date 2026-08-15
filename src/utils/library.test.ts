@@ -11,12 +11,14 @@ import {
 } from '../services/storage'
 import {
   attemptStatus,
+  attemptToQuestionBank,
   attemptToSession,
   attemptsForQuiz,
   buildSession,
   computeHistoryStats,
   createSavedQuiz,
   findDuplicate,
+  findQuizForAttempt,
   findResumable,
   formatRelativeDay,
   progressSummary,
@@ -316,5 +318,68 @@ describe('library helpers', () => {
     expect(formatRelativeDay(new Date(2026, 7, 9, 0, 5).getTime(), now)).toBe('Yesterday')
     // Two days back falls through to the absolute date.
     expect(formatRelativeDay(new Date(2026, 7, 8).getTime(), now)).not.toMatch(/Today|Yesterday/)
+  })
+})
+
+describe('saving a past attempt to the library', () => {
+  it('finds nothing when the library is empty', () => {
+    expect(findQuizForAttempt([], attemptWith(50, 1_000, 'a1'))).toBeNull()
+  })
+
+  it('matches on the quizId link even after the quiz is renamed', () => {
+    const quiz: SavedQuiz = { ...createSavedQuiz('Geography', questions), id: 'quiz_1' }
+    const renamed: SavedQuiz = { ...quiz, name: 'World Geography (2026)' }
+
+    expect(findQuizForAttempt([renamed], attemptWith(50, 1_000, 'a1'))?.id).toBe('quiz_1')
+  })
+
+  it('falls through to content matching when the linked quiz was deleted', () => {
+    // Same questions, different entry: the attempt's quizId no longer resolves.
+    const other: SavedQuiz = { ...createSavedQuiz('Geography copy', questions), id: 'quiz_other' }
+
+    expect(findQuizForAttempt([other], attemptWith(50, 1_000, 'a1'))?.id).toBe('quiz_other')
+  })
+
+  it('matches an unlinked attempt by question content', () => {
+    const quiz = createSavedQuiz('Geography', questions)
+    const unlinked: QuizAttempt = { ...attemptWith(50, 1_000, 'a1'), quizId: undefined }
+
+    expect(findQuizForAttempt([quiz], unlinked)?.id).toBe(quiz.id)
+  })
+
+  it('recognises a shuffled run as the same quiz', () => {
+    // The attempt records questions in *played* order, which the order-sensitive
+    // fingerprint would otherwise read as a different bank.
+    const quiz = createSavedQuiz('Geography', questions)
+    const shuffled: QuizAttempt = {
+      ...attemptWith(50, 1_000, 'a1'),
+      quizId: undefined,
+      questions: [questions[2], questions[0], questions[1]],
+    }
+
+    expect(findDuplicate([quiz], shuffled.questions)).toBeNull()
+    expect(findQuizForAttempt([quiz], shuffled)?.id).toBe(quiz.id)
+  })
+
+  it('does not match a genuinely different question bank', () => {
+    const quiz = createSavedQuiz('Geography', questions)
+    const different: QuizAttempt = {
+      ...attemptWith(50, 1_000, 'a1'),
+      quizId: undefined,
+      questions: [{ id: 9, question: 'Unrelated?', options: ['a', 'b'], correctAnswers: ['a'] }],
+    }
+
+    expect(findQuizForAttempt([quiz], different)).toBeNull()
+  })
+
+  it('files a shuffled attempt under a canonical order', () => {
+    const shuffled: QuizAttempt = {
+      ...attemptWith(50, 1_000, 'a1'),
+      questions: [questions[2], questions[0], questions[1]],
+    }
+
+    expect(attemptToQuestionBank(shuffled).map((q) => q.id)).toEqual([1, 2, 3])
+    // The source attempt is left exactly as it was recorded.
+    expect(shuffled.questions.map((q) => q.id)).toEqual([3, 1, 2])
   })
 })

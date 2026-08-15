@@ -1,5 +1,5 @@
 import { useCallback, useState } from 'react'
-import type { QuizQuestion, QuizSession, SavedQuiz } from '../types/quiz'
+import type { QuizAttempt, QuizQuestion, QuizSession, SavedQuiz } from '../types/quiz'
 import {
   deleteSavedQuiz,
   fingerprintQuestions,
@@ -7,7 +7,19 @@ import {
   patchSavedQuiz,
   upsertSavedQuiz,
 } from '../services/storage'
-import { createSavedQuiz, findDuplicate, sessionToProgress } from '../utils/library'
+import {
+  attemptToQuestionBank,
+  createSavedQuiz,
+  findDuplicate,
+  findQuizForAttempt,
+  sessionToProgress,
+} from '../utils/library'
+
+/** Outcome of filing a past attempt in the library — saved, or already there. */
+export interface SaveAttemptResult {
+  status: 'saved' | 'already-saved'
+  quiz: SavedQuiz
+}
 
 /**
  * The user's local quiz library.
@@ -90,6 +102,32 @@ export function useSavedQuizzes() {
     [quizzes],
   )
 
+  /** The library entry a past attempt's questions already live in, if any. */
+  const findQuizForPastAttempt = useCallback(
+    (attempt: QuizAttempt): SavedQuiz | null => findQuizForAttempt(quizzes, attempt),
+    [quizzes],
+  )
+
+  /**
+   * File a past attempt's questions in the library.
+   *
+   * Goes through the same `createSavedQuiz` → `upsertSavedQuiz` path as an
+   * import, so there is one library and one write path. The attempt itself is
+   * never touched: history is append-only, and a saved quiz is a *copy* of the
+   * bank, not a reference back to the result.
+   */
+  const saveAttemptToLibrary = useCallback(
+    (attempt: QuizAttempt): SaveAttemptResult => {
+      const existing = findQuizForAttempt(quizzes, attempt)
+      if (existing) return { status: 'already-saved', quiz: existing }
+
+      const quiz = createSavedQuiz(attempt.quizName, attemptToQuestionBank(attempt))
+      setQuizzes(upsertSavedQuiz(quiz))
+      return { status: 'saved', quiz }
+    },
+    [quizzes],
+  )
+
   return {
     quizzes,
     refresh,
@@ -101,5 +139,7 @@ export function useSavedQuizzes() {
     completeProgress,
     clearProgress,
     findSavedDuplicate,
+    findQuizForPastAttempt,
+    saveAttemptToLibrary,
   }
 }

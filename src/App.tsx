@@ -423,6 +423,8 @@ export default function App() {
             subheading="Your attempts, newest first"
             onReview={setReviewAttempt}
             onDelete={handleDeleteAttempt}
+            onSaveToLibrary={library.saveAttemptToLibrary}
+            isInLibrary={(attempt) => library.findQuizForPastAttempt(attempt) !== null}
             emptyState={
               <div className="rounded-2xl border border-dashed border-slate-300 bg-white/50 p-8 text-center dark:border-slate-700 dark:bg-slate-900/50">
                 <p aria-hidden className="text-3xl">
@@ -457,6 +459,8 @@ export default function App() {
               attempts={history.recent(RECENT_RESULTS_LIMIT)}
               onReview={setReviewAttempt}
               onDelete={handleDeleteAttempt}
+              onSaveToLibrary={library.saveAttemptToLibrary}
+              isInLibrary={(attempt) => library.findQuizForPastAttempt(attempt) !== null}
               onSeeAll={() => navigate('results')}
             />
           </HomeDashboard>

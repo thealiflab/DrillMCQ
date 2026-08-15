@@ -210,6 +210,53 @@ export function findDuplicate(quizzes: SavedQuiz[], questions: QuizQuestion[]): 
   return quizzes.find((q) => q.fingerprint === fingerprint) ?? null
 }
 
+/** Questions in a canonical order, so a comparison ignores how a run was played. */
+function canonicalOrder(questions: QuizQuestion[]): QuizQuestion[] {
+  return [...questions].sort((a, b) => a.id - b.id)
+}
+
+/**
+ * The library entry this attempt's questions already live in, if any — the
+ * check behind "Already saved" on a result.
+ *
+ * Three passes, widening as they go, because an attempt reaches the library by
+ * more than one route:
+ *
+ * 1. `attempt.quizId` — the attempt was played *from* a library quiz. The link
+ *    is authoritative, and it still holds after the quiz has been renamed or
+ *    its questions edited. An id that no longer resolves means the quiz was
+ *    deleted, so the search continues rather than stopping.
+ * 2. `findDuplicate` — the same bank, same order. This is the plain re-import
+ *    case, and it reuses the stored fingerprint untouched.
+ * 3. The same bank in a *different* order. `fingerprintQuestions` is
+ *    order-sensitive by design, but `attempt.questions` are stored in the order
+ *    they were **played** — so a shuffled run of a saved quiz fingerprints
+ *    differently from the quiz it came from. Comparing both sides in
+ *    `canonicalOrder` uses that same hash on a stable ordering, which is what
+ *    stops a shuffled attempt from being saved as a duplicate of its own quiz.
+ */
+export function findQuizForAttempt(quizzes: SavedQuiz[], attempt: QuizAttempt): SavedQuiz | null {
+  if (attempt.quizId !== undefined) {
+    const linked = quizzes.find((q) => q.id === attempt.quizId)
+    if (linked) return linked
+  }
+
+  const exact = findDuplicate(quizzes, attempt.questions)
+  if (exact) return exact
+
+  const canonical = fingerprintQuestions(canonicalOrder(attempt.questions))
+  return quizzes.find((q) => fingerprintQuestions(canonicalOrder(q.questions)) === canonical) ?? null
+}
+
+/**
+ * The question bank to file in the library for an attempt, in canonical order
+ * so a shuffled run is saved as the bank it was drawn from rather than as the
+ * one shuffle the user happened to get.
+ */
+export function attemptToQuestionBank(attempt: QuizAttempt): QuizQuestion[] {
+  return canonicalOrder(attempt.questions)
+}
+
 /** "3 Aug 2026, 14:05" — locale-aware, compact enough for a card. */
 export function formatDateTime(epochMs: number): string {
   return new Date(epochMs).toLocaleString(undefined, {
