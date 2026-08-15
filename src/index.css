@@ -38,3 +38,36 @@ body {
 .animate-fade-slide-in {
   animation: fade-slide-in 0.25s ease-out both;
 }
+
+/* Confetti for a passed quiz (see CelebrationOverlay). Each piece falls the
+   full viewport height with its own drift, spin and timing, supplied inline as
+   custom properties so one keyframe covers all of them. */
+@keyframes confetti-fall {
+  from {
+    opacity: 1;
+    transform: translate3d(0, -10vh, 0) rotate(0deg);
+  }
+  to {
+    opacity: 0;
+    transform: translate3d(var(--confetti-drift, 0), 105vh, 0)
+      rotate(var(--confetti-spin, 360deg));
+  }
+}
+
+.confetti-piece {
+  position: absolute;
+  top: 0;
+  display: block;
+  animation-name: confetti-fall;
+  animation-timing-function: cubic-bezier(0.3, 0.2, 0.6, 1);
+  animation-fill-mode: both;
+  will-change: transform, opacity;
+}
+
+/* Reduced motion: the field is hidden in the markup, but belt and braces —
+   nothing here should move for a user who asked it not to. */
+@media (prefers-reduced-motion: reduce) {
+  .confetti-field {
+    display: none;
+  }
+}

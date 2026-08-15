@@ -494,6 +494,9 @@ function FinishedQuiz({
       onHome={onHome}
       onViewHistory={quizId === undefined ? undefined : () => onViewHistory(quizId)}
       renderQuestionExtras={renderQuestionExtras}
+      // Only the run just submitted celebrates; reviewing it again from the
+      // history (call site 1 above) does not.
+      celebrateOnPass
     />
   )
 }

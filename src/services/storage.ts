@@ -7,7 +7,7 @@ import type {
   SavedQuiz,
   SavedQuizProgress,
 } from '../types/quiz'
-import { normalizeQuestion } from '../utils/quiz'
+import { normalizePassPercentage, normalizeQuestion } from '../utils/quiz'
 
 /**
  * Thin wrapper around localStorage so persistence logic lives in one place
@@ -37,7 +37,7 @@ const AI_KEY_KEY = 'drillmcq_ai_key.v1'
 const LEGACY_SESSION_KEY = 'drillmcq.session.v1'
 
 /** Bump when a stored shape changes, and add a step to `migrate` below. */
-export const SCHEMA_VERSION = 3
+export const SCHEMA_VERSION = 4
 
 // ---------------------------------------------------------------------------
 // Low-level primitives
@@ -193,6 +193,9 @@ function normalizeSettings(value: unknown): QuizSettings {
       Array.isArray(raw.categories) && raw.categories.every((c) => typeof c === 'string')
         ? (raw.categories as string[])
         : [],
+    // Written before the pass mark existed: the default is the honest reading,
+    // since the run was never judged against anything else.
+    passPercentage: normalizePassPercentage(raw.passPercentage),
   }
 }
 
@@ -443,6 +446,20 @@ export function migrate(): void {
     if (session) writeJson(SESSION_KEY, session)
     const quizzes = readJson(SAVED_QUIZZES_KEY, (v) => normalizeList(v, normalizeSavedQuiz))
     if (quizzes) writeJson(SAVED_QUIZZES_KEY, quizzes)
+  }
+
+  // v3 -> v4: `QuizSettings` gained `passPercentage`. `normalizeSettings`
+  // supplies the default for a record written without one, so this is a third
+  // read-and-write-back under the same keys. Attempts are included this time:
+  // unlike `revealed`, the pass mark is what a stored result is judged against
+  // when it is replayed on the result screen.
+  if (storedVersion < 4) {
+    const session = readJson(SESSION_KEY, normalizeSession)
+    if (session) writeJson(SESSION_KEY, session)
+    const quizzes = readJson(SAVED_QUIZZES_KEY, (v) => normalizeList(v, normalizeSavedQuiz))
+    if (quizzes) writeJson(SAVED_QUIZZES_KEY, quizzes)
+    const attempts = readJson(RESULTS_KEY, (v) => normalizeList(v, normalizeAttempt))
+    if (attempts) writeJson(RESULTS_KEY, attempts)
   }
 
   writeRaw(SCHEMA_VERSION_KEY, String(SCHEMA_VERSION))

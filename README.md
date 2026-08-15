@@ -42,7 +42,8 @@ A modern, fully client-side quiz platform built with **React**, **TypeScript**, 
 - **Professional quiz engine**: one question at a time, progress bar, next/previous navigation
 - **Distraction-free quiz screen**: while you are answering, the navigation is replaced by a slim bar showing the quiz name, timer, position, and progress — the only way out is a labelled back button behind a confirmation, so a stray tap can't abandon a run
 - **Keyboard navigation**: `←`/`→` to move between questions, `1–8` or `A–H` to select answers (they tick and untick on a multi-answer question), `Enter` to check the current question
-- **Results & review**: score, percentage, per-question review with correct/incorrect indicators
+- **Results & review**: score percentage in a circular ring, per-question review with correct/incorrect indicators
+- **Pass/fail threshold**: set a pass mark (default 70%) before the quiz starts; the result screen shows **PASS** or **FAIL** against it, with a brief, dismissible confetti celebration on a pass
 - **Explanations**: optional expandable explanation per question
 - **Quiz library**: save imported quizzes to your **Quiz Library**, with question count, categories, best score, attempts, and status (not started / in progress / completed). Rename, start over, view results, or delete from a per-card menu
 - **Resume**: leave or refresh mid-quiz and pick up from home or the library exactly where you left off, with answers, position, timer, and settings intact
@@ -364,10 +365,11 @@ Everything is stored in your browser's `localStorage` under versioned keys:
 | `drillmcq_ai_key.v1`           | Your API key — **only** if you opt in |
 | `drillmcq_schema_version`      | Schema version used for migrations   |
 
-The current schema version is **3**. Upgrading from an older version rewrites
-stored questions and answers into the multi-answer shape, and gives an
-in-progress run its (empty) set of checked questions — all in place, so saved
-quizzes, an unfinished run, and your results history survive the upgrade.
+The current schema version is **4**. Upgrading from an older version rewrites
+stored questions and answers into the multi-answer shape, gives an in-progress
+run its (empty) set of checked questions, and fills in the default 70% pass mark
+on runs and results recorded before that setting existed — all in place, so
+saved quizzes, an unfinished run, and your results history survive the upgrade.
 
 Nothing is ever sent to a server. Clearing site data clears your quizzes and
 history. Corrupted records are repaired or dropped on load rather than crashing
@@ -460,9 +462,11 @@ src/
  │    ├── QuizTopBar.tsx       # The only chrome shown during a run
  │    ├── StepIndicator.tsx    # Paste → Review → Start
  │    ├── QuizCard.tsx         # Question + options card
- │    ├── QuizSetup.tsx        # Shuffle / timer / category settings
+ │    ├── QuizSetup.tsx        # Shuffle / timer / pass mark / category settings
  │    ├── ProgressBar.tsx      # Progress indicator
  │    ├── ResultScreen.tsx     # Score summary + answer review
+ │    ├── ScoreRing.tsx        # Circular score ring with the pass-mark tick
+ │    ├── CelebrationOverlay.tsx # Dismissible confetti shown on a pass
  │    ├── ExplanationPanel.tsx # Expandable explanation
  │    ├── ThemeToggle.tsx      # Dark/light mode switch
  │    ├── SettingsDialog.tsx   # Appearance + door into the AI assistant

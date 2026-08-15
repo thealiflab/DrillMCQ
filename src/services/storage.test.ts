@@ -63,7 +63,7 @@ function makeAttempt(overrides: Partial<QuizAttempt> = {}): QuizAttempt {
     unanswered: 0,
     total: 2,
     percentage: 50,
-    settings: { shuffleQuestions: false, shuffleOptions: false, timerMinutes: 0, categories: [] },
+    settings: { shuffleQuestions: false, shuffleOptions: false, timerMinutes: 0, categories: [], passPercentage: 70 },
     questions,
     answers: { 1: ['Paris'], 2: ['3'] },
     ...overrides,
@@ -81,7 +81,7 @@ function makeSession(overrides: Partial<QuizSession> = {}): QuizSession {
     startedAt: 5000,
     timerMinutes: 10,
     attemptId: 'attempt_live',
-    settings: { shuffleQuestions: true, shuffleOptions: false, timerMinutes: 10, categories: [] },
+    settings: { shuffleQuestions: true, shuffleOptions: false, timerMinutes: 10, categories: [], passPercentage: 70 },
     quizId: 'quiz_1',
     quizName: 'Geography',
     ...overrides,
@@ -379,6 +379,57 @@ describe('migration', () => {
       JSON.stringify(makeSession({ revealed: [1, 1, 'two', null, 2] as unknown as number[] })),
     )
     expect(loadSession()?.revealed).toEqual([1, 2])
+  })
+
+  it('backfills the pass mark on records written before it existed', () => {
+    const stripPassMark = (settings: Record<string, unknown>) => {
+      const copy = { ...settings }
+      delete copy.passPercentage
+      return copy
+    }
+    storage.setItem('drillmcq_schema_version', '3')
+    const session = makeSession()
+    storage.setItem(
+      SESSION_KEY,
+      JSON.stringify({ ...session, settings: stripPassMark({ ...session.settings }) }),
+    )
+    const quiz = makeQuiz()
+    storage.setItem(
+      SAVED_QUIZZES_KEY,
+      JSON.stringify([
+        {
+          ...quiz,
+          progress: {
+            ...makeSession(),
+            updatedAt: 9000,
+            settings: stripPassMark({ ...session.settings }),
+          },
+        },
+      ]),
+    )
+    const attempt = makeAttempt()
+    storage.setItem(
+      RESULTS_KEY,
+      JSON.stringify([{ ...attempt, settings: stripPassMark({ ...attempt.settings }) }]),
+    )
+
+    // The default is what these runs were effectively judged against, and the
+    // rest of each record — including the timer — survives untouched.
+    expect(loadSession()?.settings.passPercentage).toBe(70)
+    expect(loadSession()?.settings.timerMinutes).toBe(10)
+    expect(loadSavedQuizzes()[0].progress?.settings.passPercentage).toBe(70)
+    expect(loadAttempts()[0].settings.passPercentage).toBe(70)
+    expect(loadAttempts()[0].percentage).toBe(50)
+    expect(storage.getItem('drillmcq_schema_version')).toBe(String(SCHEMA_VERSION))
+  })
+
+  it('clamps a hand-edited pass mark into 0–100', () => {
+    const session = makeSession()
+    storage.setItem(
+      SESSION_KEY,
+      JSON.stringify({ ...session, settings: { ...session.settings, passPercentage: 250 } }),
+    )
+    expect(loadSession()?.settings.passPercentage).toBe(100)
   })
 
   it('leaves an already-migrated store untouched', () => {

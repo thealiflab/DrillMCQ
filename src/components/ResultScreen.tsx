@@ -1,8 +1,10 @@
-import { useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { QuizQuestion, QuizSession } from '../types/quiz'
 import { computeResult, isAnswerCorrect, isMultiAnswer } from '../utils/quiz'
+import { CelebrationOverlay } from './CelebrationOverlay'
 import { ConfirmDialog } from './ConfirmDialog'
 import { ExplanationPanel } from './ExplanationPanel'
+import { ScoreRing } from './ScoreRing'
 
 /** Injected renderer for the optional per-question extras (the AI panel). */
 export type ResultScreenExtras = (
@@ -30,6 +32,12 @@ interface ResultScreenProps {
    * this screen keeps no dependency on the AI layer.
    */
   renderQuestionExtras?: ResultScreenExtras
+  /**
+   * Play the confetti overlay when the run passed. Set only for a run the user
+   * just submitted — replaying a stored attempt from the history shouldn't
+   * throw a party for a result they have already seen.
+   */
+  celebrateOnPass?: boolean
 }
 
 /** Triggers a download of the loaded quiz as a JSON file. */
@@ -56,12 +64,27 @@ export function ResultScreen({
   onHome,
   subtitle,
   renderQuestionExtras,
+  celebrateOnPass = false,
 }: ResultScreenProps) {
   const result = useMemo(() => computeResult(session), [session])
   const [incorrectOnly, setIncorrectOnly] = useState(false)
   const [search, setSearch] = useState('')
   const [confirmRetry, setConfirmRetry] = useState(false)
   const reviewRef = useRef<HTMLDivElement>(null)
+
+  // Keyed by attempt id so a retake that passes celebrates again, while a
+  // re-render of the same result does not revive a dismissed overlay.
+  const [celebratedAttempt, setCelebratedAttempt] = useState<string | null>(null)
+  const celebrating = celebrateOnPass && result.passed && celebratedAttempt !== session.attemptId
+  const dismissCelebration = useCallback(
+    () => setCelebratedAttempt(session.attemptId),
+    [session.attemptId],
+  )
+  // A retry replaces the session in place, so reset the "already seen" marker
+  // whenever the attempt changes rather than relying on a remount.
+  useEffect(() => {
+    setCelebratedAttempt((seen) => (seen === session.attemptId ? seen : null))
+  }, [session.attemptId])
 
   const reviewQuestions = session.questions.filter((q) => {
     if (incorrectOnly && isAnswerCorrect(q, session.answers[q.id])) return false
@@ -72,29 +95,64 @@ export function ResultScreen({
     return true
   })
 
-  const grade =
-    result.percentage >= 80 ? '🎉 Excellent!' : result.percentage >= 60 ? '👍 Good job!' : '📚 Keep practicing!'
+  // Tone follows the verdict, not a second scale of its own: a pass reads as a
+  // pass even at 71%, and a fail says what to do next instead of scolding.
+  const headline = result.passed
+    ? result.percentage >= 90
+      ? 'Outstanding — comfortably above the pass mark.'
+      : 'You passed. Nicely done.'
+    : `Not this time — ${result.passPercentage - result.percentage}% short of the pass mark.`
 
   const secondary =
     'min-h-11 rounded-xl border border-slate-300 bg-white px-5 py-2.5 font-medium shadow-sm transition-colors hover:bg-slate-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-500 dark:border-slate-700 dark:bg-slate-900 dark:hover:bg-slate-800'
 
   return (
     <div className="animate-fade-slide-in space-y-6">
-      {/* Score summary card */}
-      <div className="rounded-2xl border border-slate-200 bg-white p-6 text-center shadow-sm sm:p-8 dark:border-slate-800 dark:bg-slate-900">
+      {/* Score summary card. Its border carries the verdict's colour too, so
+          the pass/fail state is legible before reading a word. */}
+      <div
+        className={`rounded-2xl border bg-white p-6 text-center shadow-sm sm:p-8 dark:bg-slate-900 ${
+          result.passed
+            ? 'border-green-300 dark:border-green-900'
+            : 'border-amber-300 dark:border-amber-900'
+        }`}
+      >
         <h2 className="text-xl font-bold tracking-tight">
           {onRetry === undefined ? 'Attempt review' : 'Quiz complete'}
         </h2>
         {subtitle !== undefined && (
           <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">{subtitle}</p>
         )}
-        <p className="mt-2 text-lg font-medium text-slate-600 dark:text-slate-400">{grade}</p>
-        <p className="my-2 text-5xl font-bold text-indigo-600 dark:text-indigo-400">
-          {result.percentage}%
-        </p>
-        <p className="text-slate-600 dark:text-slate-400">
-          You scored {result.correct} out of {result.total}
-        </p>
+        {/* Verdict block: ring, PASS/FAIL, threshold. Stacks on a phone and
+            sits side by side from `sm` up, where there's room for both. */}
+        <div className="mt-5 flex flex-col items-center gap-5 sm:flex-row sm:justify-center sm:gap-8">
+          <ScoreRing
+            percentage={result.percentage}
+            passPercentage={result.passPercentage}
+            passed={result.passed}
+          />
+
+          <div className="sm:text-left">
+            <p
+              className={`inline-flex items-center gap-2 rounded-full px-4 py-1.5 text-sm font-bold tracking-wide uppercase ${
+                result.passed
+                  ? 'bg-green-100 text-green-800 dark:bg-green-950 dark:text-green-300'
+                  : 'bg-amber-100 text-amber-900 dark:bg-amber-950 dark:text-amber-300'
+              }`}
+            >
+              <span aria-hidden>{result.passed ? '✓' : '✕'}</span>
+              {result.passed ? 'Pass' : 'Fail'}
+            </p>
+            <p className="mt-3 max-w-xs text-slate-600 dark:text-slate-400">{headline}</p>
+            <p className="mt-1 font-medium">
+              You scored {result.correct} out of {result.total}
+            </p>
+            {/* The tick on the ring marks this same number. */}
+            <p className="mt-1 text-sm font-medium text-slate-500 dark:text-slate-400">
+              Pass mark: {result.passPercentage}%
+            </p>
+          </div>
+        </div>
 
         <dl className="mx-auto mt-6 grid max-w-md grid-cols-3 gap-3 text-sm">
           <div className="rounded-xl bg-green-50 p-3 dark:bg-green-950/50">
@@ -155,6 +213,8 @@ export function ResultScreen({
           Export questions as JSON
         </button>
       </div>
+
+      {celebrating && <CelebrationOverlay onDismiss={dismissCelebration} />}
 
       {confirmRetry && onRetry !== undefined && (
         <ConfirmDialog

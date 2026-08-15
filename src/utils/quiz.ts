@@ -186,7 +186,40 @@ export function getCategories(questions: QuizQuestion[]): string[] {
   return [...set].sort()
 }
 
-/** Score a finished (or in-progress) session. */
+/** Threshold a run must reach to pass, when the user hasn't picked one. */
+export const DEFAULT_PASS_PERCENTAGE = 70
+
+/**
+ * Coerce anything into a usable pass mark: a whole number of percent, 0–100.
+ * Used by the setup screen and by the storage normalizer, so a hand-edited or
+ * older record can never produce a threshold nothing can be judged against.
+ */
+export function normalizePassPercentage(value: unknown): number {
+  if (typeof value !== 'number' || !Number.isFinite(value)) return DEFAULT_PASS_PERCENTAGE
+  return Math.min(100, Math.max(0, Math.round(value)))
+}
+
+/**
+ * Fewest correct answers out of `total` that reach the pass mark.
+ *
+ * Derived by walking the same rounding `computeResult` applies rather than by
+ * a ceil of the raw ratio, so the number the setup screen promises is exactly
+ * the number the result screen will honour.
+ */
+export function questionsNeededToPass(total: number, passPercentage: number): number {
+  const mark = normalizePassPercentage(passPercentage)
+  for (let correct = 0; correct <= total; correct++) {
+    if (Math.round((correct / total) * 100) >= mark) return correct
+  }
+  return total
+}
+
+/**
+ * Score a finished (or in-progress) session, including the pass/fail verdict.
+ *
+ * The verdict lives here rather than in the result screen so every consumer —
+ * a live result, a replayed attempt — reads the same number and the same rule.
+ */
 export function computeResult(session: QuizSession): QuizResult {
   const total = session.questions.length
   let correct = 0
@@ -197,12 +230,16 @@ export function computeResult(session: QuizSession): QuizResult {
     else if (isAnswerCorrect(q, answer)) correct++
   }
   const incorrect = total - correct - unanswered
+  const percentage = total === 0 ? 0 : Math.round((correct / total) * 100)
+  const passPercentage = normalizePassPercentage(session.settings.passPercentage)
   return {
     total,
     correct,
     incorrect,
     unanswered,
-    percentage: total === 0 ? 0 : Math.round((correct / total) * 100),
+    percentage,
+    passPercentage,
+    passed: percentage >= passPercentage,
   }
 }
 

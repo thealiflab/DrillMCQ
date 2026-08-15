@@ -6,8 +6,10 @@ import {
   isMultiAnswer,
   isQuestionLocked,
   isRevealed,
+  normalizePassPercentage,
   normalizeQuestion,
   parseQuizJson,
+  questionsNeededToPass,
   toggleOption,
 } from './quiz'
 
@@ -16,6 +18,7 @@ const settings: QuizSettings = {
   shuffleOptions: false,
   timerMinutes: 0,
   categories: [],
+  passPercentage: 70,
 }
 
 /** "Which are operating systems?" — A and C are correct, B and D are not. */
@@ -37,6 +40,7 @@ function sessionWith(
   questions: QuizQuestion[],
   answers: Record<number, string[]>,
   revealed: number[] = [],
+  passPercentage = settings.passPercentage,
 ): QuizSession {
   return {
     questions,
@@ -48,7 +52,7 @@ function sessionWith(
     startedAt: 0,
     timerMinutes: 0,
     attemptId: 'attempt_1',
-    settings,
+    settings: { ...settings, passPercentage },
   }
 }
 
@@ -147,6 +151,61 @@ describe('scoring', () => {
     expect(result.correct).toBe(1)
     expect(result.incorrect).toBe(0)
     expect(result.unanswered).toBe(1)
+  })
+})
+
+describe('pass / fail threshold', () => {
+  /** 10 questions, `correct` of them answered right. */
+  function sessionScoring(correct: number, passPercentage: number): QuizSession {
+    const questions = Array.from({ length: 10 }, (_, i) => ({ ...single, id: i + 1 }))
+    const answers: Record<number, string[]> = {}
+    questions.forEach((q, i) => {
+      answers[q.id] = i < correct ? ['Paris'] : ['Rome']
+    })
+    return sessionWith(questions, answers, [], passPercentage)
+  }
+
+  it('passes exactly at the threshold', () => {
+    const result = computeResult(sessionScoring(7, 70))
+    expect(result.percentage).toBe(70)
+    expect(result.passed).toBe(true)
+    expect(result.passPercentage).toBe(70)
+  })
+
+  it('fails one question below the threshold', () => {
+    const result = computeResult(sessionScoring(6, 70))
+    expect(result.percentage).toBe(60)
+    expect(result.passed).toBe(false)
+  })
+
+  it('judges each run against its own stored threshold', () => {
+    expect(computeResult(sessionScoring(8, 90)).passed).toBe(false)
+    expect(computeResult(sessionScoring(8, 50)).passed).toBe(true)
+  })
+
+  it('passes everything at a threshold of 0, including an empty quiz', () => {
+    expect(computeResult(sessionScoring(0, 0)).passed).toBe(true)
+    expect(computeResult(sessionWith([], {}, [], 0)).passed).toBe(true)
+    expect(computeResult(sessionWith([], {}, [], 1)).passed).toBe(false)
+  })
+
+  it('repairs a threshold that is missing, out of range, or fractional', () => {
+    expect(normalizePassPercentage(undefined)).toBe(70)
+    expect(normalizePassPercentage('80')).toBe(70)
+    expect(normalizePassPercentage(NaN)).toBe(70)
+    expect(normalizePassPercentage(-5)).toBe(0)
+    expect(normalizePassPercentage(140)).toBe(100)
+    expect(normalizePassPercentage(66.6)).toBe(67)
+  })
+
+  it('promises a pass count that matches how the score is actually rounded', () => {
+    // 2/3 rounds to 67%, which clears a 66% mark — a ceil of the raw ratio
+    // would have demanded all three.
+    expect(questionsNeededToPass(3, 66)).toBe(2)
+    expect(questionsNeededToPass(3, 68)).toBe(3)
+    expect(questionsNeededToPass(10, 70)).toBe(7)
+    expect(questionsNeededToPass(10, 0)).toBe(0)
+    expect(questionsNeededToPass(0, 70)).toBe(0)
   })
 })
 

@@ -22,6 +22,12 @@ export interface QuizSettings {
   timerMinutes: number
   /** Categories to include. Empty array means all categories. */
   categories: string[]
+  /**
+   * Score (0–100) the run must reach to count as a pass. Stored on the run
+   * rather than globally so a result — live or replayed from history — is
+   * always judged against the threshold it was taken under.
+   */
+  passPercentage: number
 }
 
 /** A running (or finished) quiz session — this is what gets persisted. */
@@ -147,4 +153,8 @@ export interface QuizResult {
   incorrect: number
   unanswered: number
   percentage: number
+  /** The threshold this result was judged against, copied from the settings. */
+  passPercentage: number
+  /** `percentage >= passPercentage`. Derived here so nothing else re-decides it. */
+  passed: boolean
 }

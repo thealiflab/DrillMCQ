@@ -36,6 +36,7 @@ const settings: QuizSettings = {
   shuffleQuestions: false,
   shuffleOptions: false,
   timerMinutes: 0,
+  passPercentage: 70,
   categories: [],
 }
 

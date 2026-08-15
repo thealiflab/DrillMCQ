@@ -1,8 +1,16 @@
 import { useState } from 'react'
 import { useBusyAction } from '../hooks/useBusyAction'
 import type { QuizQuestion, QuizSettings } from '../types/quiz'
-import { getCategories } from '../utils/quiz'
+import {
+  DEFAULT_PASS_PERCENTAGE,
+  getCategories,
+  normalizePassPercentage,
+  questionsNeededToPass,
+} from '../utils/quiz'
 import { Spinner } from './Spinner'
+
+const numberField =
+  'w-28 rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm shadow-sm outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/30 dark:border-slate-700 dark:bg-slate-900'
 
 interface QuizSetupProps {
   questions: QuizQuestion[]
@@ -19,6 +27,7 @@ export function QuizSetup({ questions, onStart, onDiscard }: QuizSetupProps) {
   const [shuffleQuestions, setShuffleQuestions] = useState(false)
   const [shuffleOptions, setShuffleOptions] = useState(false)
   const [timerMinutes, setTimerMinutes] = useState(0)
+  const [passPercentage, setPassPercentage] = useState(DEFAULT_PASS_PERCENTAGE)
   const [selectedCategories, setSelectedCategories] = useState<string[]>([])
 
   // Filtering, shuffling and persisting the session is synchronous; yield a
@@ -75,19 +84,43 @@ export function QuizSetup({ questions, onStart, onDiscard }: QuizSetupProps) {
           </label>
         </div>
 
-        <div>
-          <label htmlFor="timer" className="mb-1.5 block text-sm font-medium">
-            Timer (minutes) — 0 for untimed
-          </label>
-          <input
-            id="timer"
-            type="number"
-            min={0}
-            max={480}
-            value={timerMinutes}
-            onChange={(e) => setTimerMinutes(Math.max(0, Number(e.target.value) || 0))}
-            className="w-28 rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm shadow-sm outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/30 dark:border-slate-700 dark:bg-slate-900"
-          />
+        <div className="grid gap-5 sm:grid-cols-2">
+          <div>
+            <label htmlFor="timer" className="mb-1.5 block text-sm font-medium">
+              Timer (minutes) — 0 for untimed
+            </label>
+            <input
+              id="timer"
+              type="number"
+              min={0}
+              max={480}
+              value={timerMinutes}
+              onChange={(e) => setTimerMinutes(Math.max(0, Number(e.target.value) || 0))}
+              className={numberField}
+            />
+          </div>
+
+          <div>
+            <label htmlFor="pass-mark" className="mb-1.5 block text-sm font-medium">
+              Pass mark (%)
+            </label>
+            <input
+              id="pass-mark"
+              type="number"
+              min={0}
+              max={100}
+              step={1}
+              value={passPercentage}
+              onChange={(e) => setPassPercentage(normalizePassPercentage(Number(e.target.value)))}
+              aria-describedby="pass-mark-hint"
+              className={numberField}
+            />
+            <p id="pass-mark-hint" className="mt-1.5 text-xs text-slate-500 dark:text-slate-400">
+              {effectiveCount === 0
+                ? 'Score at or above this to pass.'
+                : `At least ${questionsNeededToPass(effectiveCount, passPercentage)} of ${effectiveCount} correct to pass.`}
+            </p>
+          </div>
         </div>
 
         {categories.length > 0 && (
@@ -127,6 +160,7 @@ export function QuizSetup({ questions, onStart, onDiscard }: QuizSetupProps) {
                 shuffleOptions,
                 timerMinutes,
                 categories: selectedCategories,
+                passPercentage,
               }),
             )
           }
