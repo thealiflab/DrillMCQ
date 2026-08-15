@@ -5,12 +5,14 @@ import {
   clearAIKey,
   clearSession,
   defaultAIConfig,
+  defaultAppearance,
   deleteAttempt,
   deleteSavedQuiz,
   fingerprintQuestions,
   isStorageAvailable,
   loadAIConfig,
   loadAIKey,
+  loadAppearance,
   loadAttempts,
   loadSavedQuizzes,
   loadSession,
@@ -19,6 +21,7 @@ import {
   resetMigrationForTests,
   saveAIConfig,
   saveAIKey,
+  saveAppearance,
   saveSession,
   saveTheme,
   SCHEMA_VERSION,
@@ -32,6 +35,7 @@ const SESSION_KEY = 'drillmcq_active_session.v1'
 const LEGACY_SESSION_KEY = 'drillmcq.session.v1'
 const AI_PREFS_KEY = 'drillmcq_ai_prefs.v1'
 const AI_KEY_KEY = 'drillmcq_ai_key.v1'
+const APPEARANCE_KEY = 'drillmcq_appearance.v1'
 
 const questions: QuizQuestion[] = [
   { id: 1, question: 'Capital of France?', options: ['Paris', 'Rome'], correctAnswers: ['Paris'] },
@@ -493,6 +497,62 @@ describe('AI preferences', () => {
     saveAIConfig(defaultAIConfig())
     expect(SCHEMA_VERSION).toBe(before)
     expect(storage.getItem('drillmcq_schema_version')).toBe(String(before))
+  })
+})
+
+describe('appearance preferences', () => {
+  it('returns the shipped look when nothing is stored', () => {
+    const prefs = loadAppearance()
+    expect(prefs.font).toBe('sans')
+    expect(prefs.fontScale).toBe(1)
+    expect(prefs.background).toBe('default')
+  })
+
+  it('round-trips preferences', () => {
+    saveAppearance({ font: 'serif', fontScale: 1.3, background: 'warm' })
+    const loaded = loadAppearance()
+    expect(loaded.font).toBe('serif')
+    expect(loaded.fontScale).toBe(1.3)
+    expect(loaded.background).toBe('warm')
+  })
+
+  it('repairs garbage instead of throwing or disabling the app', () => {
+    storage.setItem(
+      APPEARANCE_KEY,
+      JSON.stringify({ font: 'papyrus', fontScale: 'huge', background: 42 }),
+    )
+    const prefs = loadAppearance()
+    expect(prefs.font).toBe('sans') // unknown font falls back
+    expect(prefs.fontScale).toBe(1) // non-numeric scale dropped
+    expect(prefs.background).toBe('default')
+  })
+
+  it('clamps an absurd text size at both ends', () => {
+    storage.setItem(APPEARANCE_KEY, JSON.stringify({ fontScale: 99 }))
+    expect(loadAppearance().fontScale).toBe(1.6)
+    storage.setItem(APPEARANCE_KEY, JSON.stringify({ fontScale: 0.01 }))
+    expect(loadAppearance().fontScale).toBe(0.8)
+  })
+
+  it('survives a non-object entry', () => {
+    storage.setItem(APPEARANCE_KEY, '"nonsense"')
+    expect(() => loadAppearance()).not.toThrow()
+    expect(loadAppearance().font).toBe('sans')
+  })
+
+  it('does not bump the schema version or add a migration step', () => {
+    const before = SCHEMA_VERSION
+    saveAppearance(defaultAppearance())
+    expect(SCHEMA_VERSION).toBe(before)
+    expect(storage.getItem('drillmcq_schema_version')).toBe(String(before))
+  })
+
+  it('is independent of the theme key', () => {
+    // Separate entries: changing the palette must never disturb dark mode.
+    saveTheme('dark')
+    saveAppearance({ font: 'mono', fontScale: 0.9, background: 'contrast' })
+    expect(loadTheme()).toBe('dark')
+    expect(loadAppearance().font).toBe('mono')
   })
 })
 

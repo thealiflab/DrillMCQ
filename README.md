@@ -70,7 +70,12 @@ bar on phones:
 | 📚 **Quiz Library** | Every saved quiz: start, continue, start over, rename, view its results, or delete                |
 | 📊 **Results**   | Every completed attempt across all quizzes, including quizzes never saved to the library            |
 
-⚙️ **Settings** (header) holds the theme switch and the optional AI assistant.
+⚙️ **Settings** (header) holds **Appearance** — dark/light mode, a background
+preset (Slate, Warm, Cool, High contrast), the font (Sans, Serif, Monospace,
+Readable) and the text size — plus the optional AI assistant. Every appearance
+choice applies instantly, is remembered in this browser, and can be undone with
+**Reset**. The background presets compose with dark mode rather than replacing
+it, and the fonts are system stacks, so nothing is ever downloaded.
 
 Everything else — the setup screen, an active run, a result, a quiz's history, a
 stored attempt — is a layer over one of those four, so you always know where
@@ -361,6 +366,7 @@ Everything is stored in your browser's `localStorage` under versioned keys:
 | `drillmcq_saved_quizzes.v1`    | The **Quiz Library**                 |
 | `drillmcq_quiz_results.v1`     | Completed attempts (append-only)     |
 | `drillmcq.theme.v1`            | Dark/light preference                |
+| `drillmcq_appearance.v1`       | Font, text size and background preset |
 | `drillmcq_ai_prefs.v1`         | AI provider/model preference         |
 | `drillmcq_ai_key.v1`           | Your API key — **only** if you opt in |
 | `drillmcq_schema_version`      | Schema version used for migrations   |

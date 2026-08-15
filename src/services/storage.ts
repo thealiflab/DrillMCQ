@@ -1,4 +1,5 @@
 import type { AIConfig, AIProviderId } from '../types/ai'
+import type { AppearancePrefs, BackgroundChoice, FontChoice } from '../types/appearance'
 import type {
   QuizAttempt,
   QuizQuestion,
@@ -7,6 +8,7 @@ import type {
   SavedQuiz,
   SavedQuizProgress,
 } from '../types/quiz'
+import { clampFontScale } from '../utils/appearance'
 import { normalizePassPercentage, normalizeQuestion } from '../utils/quiz'
 
 /**
@@ -23,6 +25,13 @@ const SAVED_QUIZZES_KEY = 'drillmcq_saved_quizzes.v1'
 const RESULTS_KEY = 'drillmcq_quiz_results.v1'
 const SESSION_KEY = 'drillmcq_active_session.v1'
 const THEME_KEY = 'drillmcq.theme.v1'
+
+/**
+ * Font, text size and background preset. Separate from the theme key so the
+ * light/dark toggle — which every screen already depends on — keeps its own
+ * bare-string entry and can never be disturbed by an appearance write.
+ */
+const APPEARANCE_KEY = 'drillmcq_appearance.v1'
 
 /**
  * AI assistant preferences and, only ever on explicit opt-in, the user's API
@@ -364,6 +373,37 @@ function normalizeAIConfig(value: unknown): AIConfig {
   }
 }
 
+const FONT_CHOICES: FontChoice[] = ['sans', 'serif', 'mono', 'readable']
+const BACKGROUND_CHOICES: BackgroundChoice[] = ['default', 'warm', 'cool', 'contrast']
+
+/** The look as shipped: system sans, unscaled text, the slate palette. */
+export function defaultAppearance(): AppearancePrefs {
+  return { font: 'sans', fontScale: 1, background: 'default' }
+}
+
+/**
+ * Cosmetic on load, like `AIConfig`: repair rather than reject. An unreadable
+ * appearance entry must cost the user their font choice, never the app.
+ */
+function normalizeAppearance(value: unknown): AppearancePrefs {
+  const raw = isRecord(value) ? value : {}
+  const defaults = defaultAppearance()
+  return {
+    font:
+      typeof raw.font === 'string' && (FONT_CHOICES as string[]).includes(raw.font)
+        ? (raw.font as FontChoice)
+        : defaults.font,
+    background:
+      typeof raw.background === 'string' && (BACKGROUND_CHOICES as string[]).includes(raw.background)
+        ? (raw.background as BackgroundChoice)
+        : defaults.background,
+    fontScale:
+      typeof raw.fontScale === 'number' && Number.isFinite(raw.fontScale)
+        ? clampFontScale(raw.fontScale)
+        : defaults.fontScale,
+  }
+}
+
 // ---------------------------------------------------------------------------
 // Ids and fingerprints
 // ---------------------------------------------------------------------------
@@ -586,6 +626,25 @@ export function saveTheme(theme: Theme): void {
 export function loadTheme(): Theme | null {
   const raw = readRaw(THEME_KEY)
   return raw === 'light' || raw === 'dark' ? raw : null
+}
+
+// ---------------------------------------------------------------------------
+// Appearance
+// ---------------------------------------------------------------------------
+
+/*
+ * A new key, so — like the AI keys below — `migrate` needs no extra step and
+ * `SCHEMA_VERSION` stays where it is. A missing entry reads back as defaults.
+ */
+
+export function loadAppearance(): AppearancePrefs {
+  migrate()
+  return readJson(APPEARANCE_KEY, normalizeAppearance) ?? defaultAppearance()
+}
+
+export function saveAppearance(prefs: AppearancePrefs): void {
+  migrate()
+  writeJson(APPEARANCE_KEY, prefs)
 }
 
 // ---------------------------------------------------------------------------
