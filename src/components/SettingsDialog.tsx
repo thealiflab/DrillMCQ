@@ -1,12 +1,14 @@
 import { useId } from 'react'
 import type { Theme } from '../services/storage'
 import type { AppearancePrefs } from '../types/appearance'
+import type { SoundPrefs } from '../types/sound'
 import {
   BACKGROUND_OPTIONS,
   FONT_OPTIONS,
   FONT_SCALES,
   isDefaultAppearance,
 } from '../utils/appearance'
+import { SOUND_OPTIONS } from '../utils/sound'
 import { Modal } from './Modal'
 
 interface SettingsDialogProps {
@@ -16,6 +18,11 @@ interface SettingsDialogProps {
   /** Patch callback — the appearance controls are one group, not three. */
   onAppearanceChange: (patch: Partial<AppearancePrefs>) => void
   onResetAppearance: () => void
+  sound: SoundPrefs
+  /** Patch callback like `onAppearanceChange`, leaving room for a volume. */
+  onSoundChange: (patch: Partial<SoundPrefs>) => void
+  /** False when the browser has no Web Audio API. */
+  soundSupported: boolean
   /** One line describing the assistant's current state. */
   aiStatus: string
   onOpenAI: () => void
@@ -45,6 +52,9 @@ export function SettingsDialog({
   appearance,
   onAppearanceChange,
   onResetAppearance,
+  sound,
+  onSoundChange,
+  soundSupported,
   aiStatus,
   onOpenAI,
   storageAvailable,
@@ -54,6 +64,7 @@ export function SettingsDialog({
   const fontLabelId = useId()
   const backgroundLabelId = useId()
   const sizeLabelId = useId()
+  const soundLabelId = useId()
 
   return (
     <Modal labelledBy={titleId} onClose={onClose}>
@@ -181,6 +192,41 @@ export function SettingsDialog({
                   className={`${SEGMENT} ${active ? SEGMENT_ON : SEGMENT_OFF}`}
                 >
                   {step.label}
+                </button>
+              )
+            })}
+          </div>
+        </section>
+
+        {/* Its own section, not part of Appearance: `isDefaultAppearance` and
+            the Reset link above would otherwise sweep sound up, and resetting
+            the *look* of the app must never unmute it. */}
+        <section className="rounded-xl border border-slate-200 p-4 dark:border-slate-800">
+          <h3 id={soundLabelId} className="text-sm font-semibold">
+            🔊 Sound effects
+          </h3>
+          <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
+            {soundSupported
+              ? 'Short tones for answer feedback, results and clicks. Nothing is downloaded — the tones are generated in your browser.'
+              : "This browser doesn't support the Web Audio API, so sound is unavailable."}
+          </p>
+          <div
+            role="group"
+            aria-labelledby={soundLabelId}
+            className="mt-3 flex gap-1 rounded-xl bg-slate-100 p-1 dark:bg-slate-800/60"
+          >
+            {SOUND_OPTIONS.map((option) => {
+              const active = sound.enabled === option.value
+              return (
+                <button
+                  key={option.label}
+                  type="button"
+                  disabled={!soundSupported}
+                  onClick={() => onSoundChange({ enabled: option.value })}
+                  aria-pressed={active}
+                  className={`${SEGMENT} ${active ? SEGMENT_ON : SEGMENT_OFF} disabled:cursor-not-allowed disabled:opacity-50`}
+                >
+                  {option.label}
                 </button>
               )
             })}

@@ -8,8 +8,10 @@ import type {
   SavedQuiz,
   SavedQuizProgress,
 } from '../types/quiz'
+import type { SoundPrefs } from '../types/sound'
 import { clampFontScale } from '../utils/appearance'
 import { normalizePassPercentage, normalizeQuestion } from '../utils/quiz'
+import { defaultSoundPrefs } from '../utils/sound'
 
 /**
  * Thin wrapper around localStorage so persistence logic lives in one place
@@ -32,6 +34,12 @@ const THEME_KEY = 'drillmcq.theme.v1'
  * bare-string entry and can never be disturbed by an appearance write.
  */
 const APPEARANCE_KEY = 'drillmcq_appearance.v1'
+
+/**
+ * Sound effects on/off. Deliberately not part of the appearance entry — see
+ * the load/save pair below.
+ */
+const SOUND_KEY = 'drillmcq_sound.v1'
 
 /**
  * AI assistant preferences and, only ever on explicit opt-in, the user's API
@@ -404,6 +412,19 @@ function normalizeAppearance(value: unknown): AppearancePrefs {
   }
 }
 
+/**
+ * One boolean, but normalized like everything else: a non-boolean entry means
+ * a corrupted or hand-edited value, and defaulting it back to "on" is kinder
+ * than leaving the app mysteriously silent.
+ */
+function normalizeSoundPrefs(value: unknown): SoundPrefs {
+  const raw = isRecord(value) ? value : {}
+  const defaults = defaultSoundPrefs()
+  return {
+    enabled: typeof raw.enabled === 'boolean' ? raw.enabled : defaults.enabled,
+  }
+}
+
 // ---------------------------------------------------------------------------
 // Ids and fingerprints
 // ---------------------------------------------------------------------------
@@ -645,6 +666,27 @@ export function loadAppearance(): AppearancePrefs {
 export function saveAppearance(prefs: AppearancePrefs): void {
   migrate()
   writeJson(APPEARANCE_KEY, prefs)
+}
+
+// ---------------------------------------------------------------------------
+// Sound effects
+// ---------------------------------------------------------------------------
+
+/*
+ * Its own key rather than a field on the appearance entry, for the same reason
+ * appearance is separate from the theme: sound is not a *look*, so the
+ * appearance Reset must not silence the app, and clearing one preference must
+ * never rewrite the other. Another new key, so `migrate` needs no step.
+ */
+
+export function loadSoundPrefs(): SoundPrefs {
+  migrate()
+  return readJson(SOUND_KEY, normalizeSoundPrefs) ?? defaultSoundPrefs()
+}
+
+export function saveSoundPrefs(prefs: SoundPrefs): void {
+  migrate()
+  writeJson(SOUND_KEY, prefs)
 }
 
 // ---------------------------------------------------------------------------

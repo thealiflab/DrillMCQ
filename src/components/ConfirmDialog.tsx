@@ -1,4 +1,5 @@
 import { useId, useRef } from 'react'
+import { playSound } from '../services/sound'
 import { Modal } from './Modal'
 
 interface ConfirmDialogProps {
@@ -58,7 +59,14 @@ export function ConfirmDialog({
         </button>
         <button
           type="button"
-          onClick={onConfirm}
+          // Gated on `danger`, which is what makes one line here cover every
+          // destructive confirm in the app while leaving the benign ones
+          // silent — Finish-with-unanswered in particular, where a thud in
+          // front of the result fanfare would be absurd. Cancel never sounds.
+          onClick={() => {
+            if (danger) playSound('destructive')
+            onConfirm()
+          }}
           className={`min-h-11 rounded-xl px-5 py-2.5 font-medium text-white shadow-sm transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 ${
             danger
               ? 'bg-red-600 hover:bg-red-700 focus-visible:outline-red-500'

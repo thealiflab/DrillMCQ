@@ -1,3 +1,5 @@
+import { useEffect, useRef } from 'react'
+import { playSound } from '../services/sound'
 import type { QuizQuestion } from '../types/quiz'
 import { isAnswerCorrect, isMultiAnswer } from '../utils/quiz'
 import { ExplanationPanel } from './ExplanationPanel'
@@ -39,6 +41,32 @@ export function QuizCard({
   // multi-answer selection is still a draft until this button commits it.
   const hasSelection = ticked.length > 0
   const correct = revealed && isAnswerCorrect(question, selectedAnswers)
+
+  /*
+   * The verdict sounds on a *transition*, not on a state: only for a question
+   * this component watched go from unrevealed to revealed. Navigating back to
+   * an already-checked question, or restoring a session parked on one, is
+   * silent, because there was no transition to hear.
+   *
+   * It lives here because line 41 above is the only place the app knows the
+   * verdict — `useQuiz.checkAnswer` computes everything inside a `setSession`
+   * updater, and React runs updaters twice under StrictMode, so a side effect
+   * there would double-fire and the lock it enforces is not worth reshaping.
+   *
+   * The ref survives navigation because App renders `<QuizCard>` without a
+   * `key`, so the instance persists across questions. (The `key` on the root
+   * div below is inside the component and doesn't remount it.)
+   */
+  const armedFor = useRef<number | null>(null)
+  useEffect(() => {
+    if (!revealed) {
+      armedFor.current = question.id
+      return
+    }
+    if (armedFor.current !== question.id) return
+    armedFor.current = null
+    playSound(correct ? 'correct' : 'incorrect')
+  }, [question.id, revealed, correct])
 
   return (
     <div

@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { playSound } from '../services/sound'
 import type { QuizQuestion, QuizSession } from '../types/quiz'
 import { computeResult, isAnswerCorrect, isMultiAnswer } from '../utils/quiz'
 import { CelebrationOverlay } from './CelebrationOverlay'
@@ -85,6 +86,25 @@ export function ResultScreen({
   useEffect(() => {
     setCelebratedAttempt((seen) => (seen === session.attemptId ? seen : null))
   }, [session.attemptId])
+
+  /*
+   * The completion sound, latched by a ref on the attempt id — the same shape
+   * as App's `recordedRef`, so a re-render (filtering the review list, an AI
+   * panel opening) can't replay it while a retake, which mints a new id, can.
+   *
+   * It reuses `celebrateOnPass` because that flag already means "this is the
+   * run the user just submitted": reviewing a stored attempt from Results is
+   * silent, exactly as it gets no confetti. Unlike the confetti it fires on
+   * *both* outcomes — a failed run gets a quiet, final tone, the audio
+   * equivalent of getting colour and words but no animation.
+   */
+  const soundedAttempt = useRef<string | null>(null)
+  useEffect(() => {
+    if (!celebrateOnPass) return
+    if (soundedAttempt.current === session.attemptId) return
+    soundedAttempt.current = session.attemptId
+    playSound(result.passed ? 'pass' : 'fail')
+  }, [celebrateOnPass, session.attemptId, result.passed])
 
   const reviewQuestions = session.questions.filter((q) => {
     if (incorrectOnly && isAnswerCorrect(q, session.answers[q.id])) return false

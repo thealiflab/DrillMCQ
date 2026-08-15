@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import type { SaveAttemptResult } from '../hooks/useSavedQuizzes'
+import { playSound } from '../services/sound'
 import type { QuizAttempt } from '../types/quiz'
 import { formatDateTime, formatRelativeDay } from '../utils/library'
 import { ConfirmDialog } from './ConfirmDialog'
@@ -64,7 +65,12 @@ export function RecentResults({
 
   const handleSave = (attempt: QuizAttempt) => {
     if (onSaveToLibrary === undefined) return
-    setFeedback(onSaveToLibrary(attempt))
+    const outcome = onSaveToLibrary(attempt)
+    // Only a real save sounds. "Already saved" changed nothing, and the menu
+    // item is disabled in that state anyway — a tone there would only ever
+    // accompany a race.
+    if (outcome.status === 'saved') playSound('save')
+    setFeedback(outcome)
   }
 
   /**

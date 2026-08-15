@@ -16,6 +16,7 @@ import {
   loadAttempts,
   loadSavedQuizzes,
   loadSession,
+  loadSoundPrefs,
   loadTheme,
   patchSavedQuiz,
   resetMigrationForTests,
@@ -23,6 +24,7 @@ import {
   saveAIKey,
   saveAppearance,
   saveSession,
+  saveSoundPrefs,
   saveTheme,
   SCHEMA_VERSION,
   upsertSavedQuiz,
@@ -36,6 +38,7 @@ const LEGACY_SESSION_KEY = 'drillmcq.session.v1'
 const AI_PREFS_KEY = 'drillmcq_ai_prefs.v1'
 const AI_KEY_KEY = 'drillmcq_ai_key.v1'
 const APPEARANCE_KEY = 'drillmcq_appearance.v1'
+const SOUND_KEY = 'drillmcq_sound.v1'
 
 const questions: QuizQuestion[] = [
   { id: 1, question: 'Capital of France?', options: ['Paris', 'Rome'], correctAnswers: ['Paris'] },
@@ -553,6 +556,50 @@ describe('appearance preferences', () => {
     saveAppearance({ font: 'mono', fontScale: 0.9, background: 'contrast' })
     expect(loadTheme()).toBe('dark')
     expect(loadAppearance().font).toBe('mono')
+  })
+})
+
+describe('sound preferences', () => {
+  it('is on when nothing is stored', () => {
+    expect(loadSoundPrefs()).toEqual({ enabled: true })
+  })
+
+  it('round-trips the off state', () => {
+    saveSoundPrefs({ enabled: false })
+    expect(loadSoundPrefs().enabled).toBe(false)
+  })
+
+  it('repairs a non-boolean back to the shipped default', () => {
+    storage.setItem(SOUND_KEY, JSON.stringify({ enabled: 'yes' }))
+    expect(loadSoundPrefs().enabled).toBe(true)
+  })
+
+  it('survives a non-object entry', () => {
+    storage.setItem(SOUND_KEY, '"nonsense"')
+    expect(() => loadSoundPrefs()).not.toThrow()
+    expect(loadSoundPrefs().enabled).toBe(true)
+  })
+
+  it('does not bump the schema version or add a migration step', () => {
+    const before = SCHEMA_VERSION
+    saveSoundPrefs({ enabled: false })
+    expect(SCHEMA_VERSION).toBe(before)
+    expect(storage.getItem('drillmcq_schema_version')).toBe(String(before))
+  })
+
+  it('is independent of the appearance and theme keys', () => {
+    // Muting the app must not touch the look, and an appearance Reset — which
+    // rewrites only APPEARANCE_KEY — must not unmute it.
+    saveTheme('dark')
+    saveAppearance({ font: 'mono', fontScale: 0.9, background: 'contrast' })
+    saveSoundPrefs({ enabled: false })
+
+    expect(loadTheme()).toBe('dark')
+    expect(loadAppearance().font).toBe('mono')
+    expect(loadSoundPrefs().enabled).toBe(false)
+
+    saveAppearance(defaultAppearance())
+    expect(loadSoundPrefs().enabled).toBe(false)
   })
 })
 

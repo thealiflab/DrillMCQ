@@ -55,6 +55,7 @@ A modern, fully client-side quiz platform built with **React**, **TypeScript**, 
 - **Review tools**: filter to incorrect answers only, search questions
 - **JSON export**: download the loaded quiz as a JSON file from the results screen
 - **Dark/light mode**: toggle from the header or the ⚙️ **Settings** dialog, with saved preference (respects OS preference by default)
+- **Sound effects**: short tones for the moments that carry meaning — a rising chime for a correct answer and a soft falling one for a wrong answer, a fanfare or a quiet closing tone at the end of a run, and light clicks on selecting, paging, saving and confirming a delete. On by default and switchable off in **Settings**. The tones are generated in the browser with the Web Audio API, so nothing is downloaded and the app stays asset-free
 - **Optional AI assistant**: bring your own key to tidy a messy paste, repair broken JSON, double-check answers, or explain a result — off by default, and every request is a deliberate button press
 - **Mobile-first and responsive**: touch-sized targets, safe-area aware bottom navigation, and layouts that scale up to desktop
 
@@ -72,10 +73,12 @@ bar on phones:
 
 ⚙️ **Settings** (header) holds **Appearance** — dark/light mode, a background
 preset (Slate, Warm, Cool, High contrast), the font (Sans, Serif, Monospace,
-Readable) and the text size — plus the optional AI assistant. Every appearance
-choice applies instantly, is remembered in this browser, and can be undone with
-**Reset**. The background presets compose with dark mode rather than replacing
-it, and the fonts are system stacks, so nothing is ever downloaded.
+Readable) and the text size — plus **Sound effects** and the optional AI
+assistant. Every appearance choice applies instantly, is remembered in this
+browser, and can be undone with **Reset**. The background presets compose with
+dark mode rather than replacing it, and the fonts are system stacks, so nothing
+is ever downloaded. Sound sits in its own section on purpose, so **Reset**
+restores the look without unmuting the app.
 
 Everything else — the setup screen, an active run, a result, a quiz's history, a
 stored attempt — is a layer over one of those four, so you always know where

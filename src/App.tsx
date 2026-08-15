@@ -22,9 +22,11 @@ import { useAppearance } from './hooks/useAppearance'
 import { useQuiz } from './hooks/useQuiz'
 import { useQuizHistory } from './hooks/useQuizHistory'
 import { useSavedQuizzes } from './hooks/useSavedQuizzes'
+import { useSound } from './hooks/useSound'
 import { useTheme } from './hooks/useTheme'
 import { useTimer } from './hooks/useTimer'
 import { PROVIDERS } from './services/ai/models'
+import { isSoundSupported, playSound } from './services/sound'
 import { isStorageAvailable } from './services/storage'
 import type { AIRequestKind } from './types/ai'
 import type { View } from './types/navigation'
@@ -54,6 +56,7 @@ const BLOCKING_AI_KINDS = new Set<AIRequestKind>(['formatting', 'json-repair', '
 export default function App() {
   const { theme, toggleTheme } = useTheme()
   const { appearance, updateAppearance, resetAppearance } = useAppearance()
+  const { sound, updateSound } = useSound()
   const quiz = useQuiz()
   const library = useSavedQuizzes()
   const history = useQuizHistory()
@@ -74,6 +77,8 @@ export default function App() {
   const [historyQuizId, setHistoryQuizId] = useState<string | null>(null)
   const [reviewAttempt, setReviewAttempt] = useState<QuizAttempt | null>(null)
   const [storageAvailable] = useState(isStorageAvailable)
+  // Checks for the constructor only — asking never creates an AudioContext.
+  const [soundSupported] = useState(isSoundSupported)
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [aiSettingsOpen, setAiSettingsOpen] = useState(false)
 
@@ -267,6 +272,9 @@ export default function App() {
           appearance={appearance}
           onAppearanceChange={updateAppearance}
           onResetAppearance={resetAppearance}
+          sound={sound}
+          onSoundChange={updateSound}
+          soundSupported={soundSupported}
           aiStatus={
             ai.ready
               ? `On · ${PROVIDERS[ai.config.provider].label} · ${ai.requestCount} request(s) this session.`
@@ -376,7 +384,12 @@ export default function App() {
                   duplicate={pendingQuiz ?? library.findSavedDuplicate(pendingQuestions)}
                   savedName={pendingQuiz?.name ?? null}
                   storageAvailable={storageAvailable}
-                  onSave={(name) => setPendingQuiz(library.saveQuiz(name, pendingQuestions))}
+                  // Same meaning as saving a result to the library, so the
+                  // same tone. An update isn't a new filing, so it stays quiet.
+                  onSave={(name) => {
+                    playSound('save')
+                    setPendingQuiz(library.saveQuiz(name, pendingQuestions))
+                  }}
                   onUpdate={(quizId) => setPendingQuiz(library.updateQuiz(quizId, pendingQuestions))}
                 />
                 <AIVerificationPanel
@@ -536,6 +549,40 @@ function ActiveQuiz({ session, quiz, onExit }: ActiveQuizProps) {
 
   const remaining = useTimer(session.startedAt, session.timerMinutes, true, quiz.finishQuiz)
 
+  /*
+   * Picking and paging each have two entry points — the buttons below and the
+   * `keydown` listener further down — so the handlers live here, where both
+   * paths meet, rather than in `QuizCard`. A view-only trigger would leave
+   * keyboard users in silence, and duplicating one in each path would let them
+   * drift apart.
+   *
+   * The guards are the other half: `useQuiz`'s mutators no-op silently when a
+   * question is locked or you're at the ends of the list, and a sound on a
+   * click that changed nothing is a lie. The buttons are `disabled` in those
+   * states but the keyboard is not, so the check belongs here too.
+   */
+  const handlePick = useCallback(
+    (option: string) => {
+      if (locked) return
+      playSound('select')
+      if (multi) quiz.toggleDraft(question.id, option)
+      else quiz.selectAnswer(question.id, option)
+    },
+    [quiz, question.id, multi, locked],
+  )
+
+  const handleNext = useCallback(() => {
+    if (currentIndex >= questions.length - 1) return
+    playSound('navigate')
+    quiz.next()
+  }, [quiz, currentIndex, questions.length])
+
+  const handlePrevious = useCallback(() => {
+    if (currentIndex <= 0) return
+    playSound('navigate')
+    quiz.previous()
+  }, [quiz, currentIndex])
+
   // A long question can leave the next one scrolled past its own heading.
   useEffect(() => {
     window.scrollTo({ top: 0, behavior: 'instant' })
@@ -548,10 +595,13 @@ function ActiveQuiz({ session, quiz, onExit }: ActiveQuizProps) {
       const target = event.target as HTMLElement
       if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA') return
 
-      if (event.key === 'ArrowRight') quiz.next()
-      else if (event.key === 'ArrowLeft') quiz.previous()
+      if (event.key === 'ArrowRight') handleNext()
+      else if (event.key === 'ArrowLeft') handlePrevious()
       else if (event.key === 'Enter') {
         // Enter mirrors the "Check Answer" button, on either kind of question.
+        // Deliberately silent: the verdict tone follows a tick later, and a
+        // click stacked in front of it would muddy the app's most important
+        // sound.
         if (!locked && hasSelection) quiz.checkAnswer(question.id)
       } else if (!locked) {
         // Number keys 1-8
@@ -562,17 +612,15 @@ function ActiveQuiz({ session, quiz, onExit }: ActiveQuizProps) {
           optionIndex = event.key.toLowerCase().charCodeAt(0) - 97
         }
         if (optionIndex >= 0 && optionIndex < question.options.length) {
-          const option = question.options[optionIndex]
-          // On a multi-answer question the key toggles the draft instead of
-          // answering outright; once checked it does nothing.
-          if (multi) quiz.toggleDraft(question.id, option)
-          else quiz.selectAnswer(question.id, option)
+          // `handlePick` makes the multi/single decision, so the keyboard and
+          // the buttons can't disagree about it.
+          handlePick(question.options[optionIndex])
         }
       }
     }
     window.addEventListener('keydown', handler)
     return () => window.removeEventListener('keydown', handler)
-  }, [quiz, question, multi, locked, hasSelection])
+  }, [quiz, question, locked, hasSelection, handlePick, handleNext, handlePrevious])
 
   const handleFinish = () => {
     // Ask for confirmation when questions are still unanswered, so a stray
@@ -604,8 +652,11 @@ function ActiveQuiz({ session, quiz, onExit }: ActiveQuizProps) {
           selectedAnswers={answers[question.id]}
           draft={drafts[question.id]}
           revealed={revealed}
-          onSelect={(option) => quiz.selectAnswer(question.id, option)}
-          onToggle={(option) => quiz.toggleDraft(question.id, option)}
+          // Both route through the same handler: QuizCard already decides
+          // single vs multi at the click, and `handlePick` decides which
+          // mutator that means.
+          onSelect={handlePick}
+          onToggle={handlePick}
           onCheck={() => quiz.checkAnswer(question.id)}
         />
 
@@ -622,7 +673,7 @@ function ActiveQuiz({ session, quiz, onExit }: ActiveQuizProps) {
         <div className="mx-auto flex max-w-3xl items-center gap-3 px-4 py-3">
           <button
             type="button"
-            onClick={quiz.previous}
+            onClick={handlePrevious}
             disabled={currentIndex === 0}
             className={`${navButton} border border-slate-300 bg-white text-slate-700 hover:bg-slate-50 focus-visible:outline-indigo-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800`}
           >
@@ -639,7 +690,7 @@ function ActiveQuiz({ session, quiz, onExit }: ActiveQuizProps) {
           ) : (
             <button
               type="button"
-              onClick={quiz.next}
+              onClick={handleNext}
               className={`${navButton} bg-indigo-600 text-white hover:bg-indigo-700 focus-visible:outline-indigo-500`}
             >
               Next →
