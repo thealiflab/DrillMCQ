@@ -1,6 +1,34 @@
-# 🎯 DrillMCQ
+<div align="center">
 
-A modern, fully client-side quiz platform built with **React**, **TypeScript**, and **Vite**. Paste quiz questions as plain text or JSON and instantly get a professional online-exam experience: no backend, no database, everything runs in your browser.
+<h1>
+
+🎯
+
+</h1>
+
+<h1>DrillMCQ</h1>
+
+<p><strong>Practice smarter. Test yourself.</strong></p>
+
+<p>
+  <a href="https://react.dev/"><img alt="React 19" src="https://img.shields.io/badge/React-19-61DAFB?style=flat-square&logo=react&logoColor=white" /></a>
+  <a href="https://www.typescriptlang.org/"><img alt="TypeScript strict" src="https://img.shields.io/badge/TypeScript-strict-3178C6?style=flat-square&logo=typescript&logoColor=white" /></a>
+  <a href="https://vite.dev/"><img alt="Vite" src="https://img.shields.io/badge/Vite-build-646CFF?style=flat-square&logo=vite&logoColor=white" /></a>
+  <a href="https://tailwindcss.com/"><img alt="Tailwind CSS v4" src="https://img.shields.io/badge/Tailwind_CSS-v4-06B6D4?style=flat-square&logo=tailwindcss&logoColor=white" /></a>
+  <a href="#license"><img alt="License: MIT" src="https://img.shields.io/badge/License-MIT-green?style=flat-square" /></a>
+  <a href="https://thealiflab.github.io/DrillMCQ/"><img alt="Live demo on GitHub Pages" src="https://img.shields.io/badge/Live_Demo-GitHub_Pages-222222?style=flat-square&logo=githubpages&logoColor=white" /></a>
+</p>
+
+<hr />
+
+<p>
+  Paste quiz questions as plain text or JSON and get a professional online-exam
+  experience — parsing, timing, scoring, and review, with an optional
+  bring-your-own-key AI assistant.<br />
+  <strong>No backend, no database: everything runs in your browser.</strong>
+</p>
+
+</div>
 
 ## Table of Contents
 
