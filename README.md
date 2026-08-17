@@ -195,15 +195,15 @@ starting.
 The **Plain text** tab accepts loosely formatted MCQ content. All of these work (and can be mixed in one paste):
 
 ```text
-1. What does AWS stand for?
+1. What does HTTP stand for?
 
-A. Advanced Web System
-B. Amazon Web Services
-C. Automated Web Solution
-D. Application Web Service
+A. HyperText Transfer Protocol
+B. High Transfer Text Protocol
+C. Hyperlink Text Transport Process
+D. Host Transfer Text Protocol
 
-Answer: B
-Explanation: AWS stands for Amazon Web Services.
+Answer: A
+Explanation: HTTP is the HyperText Transfer Protocol used by the web.
 
 What is the capital of Australia?
 a) Sydney
@@ -230,16 +230,16 @@ d) Respiration
 
 Answer: a, b, d
 
-AI Practitioner Exam Question 5
-Which AWS service records configuration changes over time?
+Networking Fundamentals Question 5
+Which OSI layer is responsible for routing packets between networks?
 
-❏ A. AWS Security Hub
+❏ A. Data link layer
 
-❏ B. AWS Config
+❏ B. Network layer
 
-❏ C. AWS CloudTrail
+❏ C. Transport layer
 
-✓ B. AWS Config
+✓ B. Network layer
 ```
 
 Parsing rules:
@@ -249,7 +249,7 @@ Parsing rules:
 - **Answers** use `Answer:`, `Ans:`, `Correct Answer:`, or `Correct:` followed by a letter, number, or the option text itself
 - **Ticked answers** are also read: a line marked `✓` (or `✔`, `☑`) names the correct option, whether the tick sits on an option inside the list or repeats the winning option below it. Several ticked lines make the question a "select all that apply". An explicit `Answer:` line wins if both are present
 - **Multiple answers** are written as a list on the same answer line: `Answer: A, C`, `Answer: A and C`, `Answer: a, b, d`, `Answer: A; C`. Every part has to resolve to a distinct option, otherwise the line is treated as a single answer — so an option whose own text contains a comma (`Answer: Atomicity, Consistency, Isolation, Durability`) is still matched as one answer
-- **Bottom answer keys** are read too: put every question first and the answers in one block at the end, under a heading (`ANSWER KEY`, `ANSWERS`, `SOLUTIONS`, `Answers and Explanations`, …) or on their own. Entries look like `1. C`, `2 - A`, `3: B`, and may list several options (`4. A, C`) or carry an explanation (`5. C — Bedrock hosts foundation models`, or an `Explanation:` line under the entry). Entries are matched to questions by number, or by position when the questions aren't numbered and the key covers exactly all of them — anything less certain is reported instead of guessed. A question with its own `Answer:` line keeps it, and a disagreeing key entry is reported as a warning
+- **Bottom answer keys** are read too: put every question first and the answers in one block at the end, under a heading (`ANSWER KEY`, `ANSWERS`, `SOLUTIONS`, `Answers and Explanations`, …) or on their own. Entries look like `1. C`, `2 - A`, `3: B`, and may list several options (`4. A, C`) or carry an explanation (`5. C — TCP guarantees ordered delivery`, or an `Explanation:` line under the entry). Entries are matched to questions by number, or by position when the questions aren't numbered and the key covers exactly all of them — anything less certain is reported instead of guessed. A question with its own `Answer:` line keeps it, and a disagreeing key entry is reported as a warning
 - **Explanations** use `Explanation:`, `Reason:`, `Rationale:`, `Because:`, or `Why:`
 - **Categories** use `Category:`, `Topic:`, or `Subject:`
 - Malformed questions are skipped with a per-line error message; the rest of the bank still loads
@@ -262,7 +262,7 @@ Claude, Gemini, or any other assistant. Paste the reply straight into the
 **Plain text** tab — no clean-up needed.
 
 ```text
-Topic: 
+Topic: [User input: Describe your topic that you want to generate the MCQ]
 Number of questions: 10
 
 Write multiple-choice questions on the topic above.
@@ -301,16 +301,16 @@ The app accepts an **array of question objects**:
 [
   {
     "id": 1,
-    "question": "What does AWS stand for?",
+    "question": "What does HTTP stand for?",
     "options": [
-      "Amazon Web Services",
-      "Advanced Web System",
-      "Application Web Services",
-      "Automated Web Solution"
+      "HyperText Transfer Protocol",
+      "High Transfer Text Protocol",
+      "Hyperlink Text Transport Process",
+      "Host Transfer Text Protocol"
     ],
-    "correctAnswers": ["Amazon Web Services"],
-    "explanation": "AWS stands for Amazon Web Services, Amazon's cloud computing platform.",
-    "category": "Cloud",
+    "correctAnswers": ["HyperText Transfer Protocol"],
+    "explanation": "HTTP is the HyperText Transfer Protocol, the request/response protocol of the web.",
+    "category": "Networking",
     "difficulty": "easy"
   },
   {
