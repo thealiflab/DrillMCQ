@@ -46,9 +46,6 @@
 - [Data & Storage](#data--storage)
 - [AI assistant (optional)](#ai-assistant-optional)
   - [About your API key](#about-your-api-key)
-- [Deployment](#deployment)
-  - [GitHub Pages](#github-pages)
-  - [Vercel](#vercel)
 - [Project Structure](#project-structure)
 - [License](#license)
 
@@ -452,36 +449,6 @@ trade-off: any script running on the page could in principle read it. Prefer a
 key scoped or rate-limited to this use.
 
 AI output can be wrong. Treat it as a second opinion, not the final word.
-
-## Deployment
-
-The Vite config uses `base: './'` (relative asset paths), so the **same build works on both GitHub Pages and Vercel** with no changes.
-
-### GitHub Pages
-
-A GitHub Actions workflow is included at [`.github/workflows/deploy.yml`](.github/workflows/deploy.yml). It builds and deploys automatically on every push to `main`.
-
-One-time setup:
-
-1. Push the repository to GitHub
-2. Go to **Settings → Pages**
-3. Under **Build and deployment**, set **Source** to **GitHub Actions**
-4. Push to `main`, and the site deploys to `https://<username>.github.io/DrillMCQ/`
-
-### Vercel
-
-1. Import the repository at [vercel.com/new](https://vercel.com/new)
-2. Vercel auto-detects Vite, so accept the defaults:
-   - **Build command:** `npm run build`
-   - **Output directory:** `dist`
-3. Deploy 🎉
-
-Or via the CLI:
-
-```bash
-npm i -g vercel
-vercel
-```
 
 ## Project Structure
 
