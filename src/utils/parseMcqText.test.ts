@@ -149,6 +149,85 @@ Answer: A, C`)
   })
 })
 
+describe('questions packed with no blank lines', () => {
+  // An exam dump exported as one paragraph per line: every question's stem sits
+  // directly under the previous question's "Explanation:" line.
+  const PACKED = `What is the PRIMARY purpose of embeddings in a RAG architecture?
+A. Convert text into numerical vectors representing semantic meaning
+B. Encrypt documents before storing them in Amazon S3
+C. Increase the temperature of a foundation model
+Answer: A
+Explanation: Embeddings represent the semantic meaning of content as numerical vectors.
+A company creates embeddings and wants to retrieve semantically similar documents. What is MOST appropriate?
+A. Vector database
+B. Relational database using only exact string matching
+C. Amazon CloudWatch Logs
+Answer: A
+Explanation: Vector databases store embeddings and perform similarity searches.
+A company wants an FM to produce output in a structured format and has examples. What should it try FIRST?
+A. Few-shot prompting
+B. Pre-training a new foundation model
+C. Building a vector database
+Answer: A
+Explanation: Few-shot prompting demonstrates the desired output format.`
+
+  it('starts a new question on prose under a finished explanation', () => {
+    const parsed = parseMcqText(PACKED)
+
+    expect(parsed.skipped).toBe(0)
+    expect(parsed.issues).toEqual([])
+    expect(parsed.questions).toHaveLength(3)
+    expect(parsed.questions.map((q) => q.correctAnswers)).toEqual([
+      ['Convert text into numerical vectors representing semantic meaning'],
+      ['Vector database'],
+      ['Few-shot prompting'],
+    ])
+  })
+
+  it('keeps each explanation with the question it belongs to', () => {
+    const parsed = parseMcqText(PACKED)
+
+    expect(parsed.questions.map((q) => q.explanation)).toEqual([
+      'Embeddings represent the semantic meaning of content as numerical vectors.',
+      'Vector databases store embeddings and perform similarity searches.',
+      'Few-shot prompting demonstrates the desired output format.',
+    ])
+    expect(parsed.questions[1].question).toBe(
+      'A company creates embeddings and wants to retrieve semantically similar documents. What is MOST appropriate?',
+    )
+  })
+
+  it('still wraps an explanation that breaks mid-sentence', () => {
+    const parsed = parseMcqText(`Which service stores objects?
+A. Amazon S3
+B. Amazon RDS
+Answer: A
+Explanation: S3 is object storage, which means it keeps whole files
+addressed by key rather than rows in a table.`)
+
+    expect(parsed.questions).toHaveLength(1)
+    expect(parsed.questions[0].explanation).toBe(
+      'S3 is object storage, which means it keeps whole files addressed by key rather than rows in a table.',
+    )
+  })
+
+  it('leaves an explanation above an unfinished question alone', () => {
+    // No answer yet, so the block is not complete: the prose below the
+    // explanation is still part of it, not a new question.
+    const parsed = parseMcqText(`Which service stores objects?
+A. Amazon S3
+B. Amazon RDS
+Explanation: S3 is object storage.
+It is not a relational database.
+Answer: A`)
+
+    expect(parsed.questions).toHaveLength(1)
+    expect(parsed.questions[0].explanation).toBe(
+      'S3 is object storage. It is not a relational database.',
+    )
+  })
+})
+
 describe('checkbox-marked pastes', () => {
   /** Exam-dump shape: titled header, "❏" options, the answer repeated under "✓". */
   const EXAM_BLOCK = `AI Practitioner Exam Question 1

@@ -319,6 +319,27 @@ function isComplete(raw: RawQuestion): boolean {
   return raw.options.length >= 2 && (raw.answerRaw !== undefined || raw.checkedAnswers.length > 0)
 }
 
+/** A line that closed a sentence: "…for retrieval." / "…done!" / "(see below.)" */
+const SENTENCE_END_RE = /[.!?][)"'”’\]]?$/
+
+/**
+ * Whether prose sitting directly under an explanation starts the next question
+ * instead of continuing that explanation.
+ *
+ * Pastes with no blank line between questions put the next stem on the line
+ * right after "Explanation: …", while a hard-wrapped explanation puts its own
+ * continuation there — and both are plain prose. The sentence above settles it:
+ * a wrapped line breaks mid-sentence, so an explanation that already closed
+ * with "." has said what it was going to say. Only a question that is already
+ * complete can be ended this way, so an explanation above an unfinished block
+ * still absorbs everything that follows it.
+ */
+function explanationIsFinished(raw: RawQuestion): boolean {
+  if (!isComplete(raw)) return false
+  const last = raw.explanationLines[raw.explanationLines.length - 1]
+  return last !== undefined && SENTENCE_END_RE.test(last.trim())
+}
+
 /**
  * Stricter form used on option lines only: an option below an "Answer:" line
  * means a new question began, but a "✓" tick applied *inside* an option list
@@ -553,7 +574,7 @@ export function parseMcqText(text: string): ParsedMcq {
         break
 
       case 'text':
-        if (inExplanation) {
+        if (inExplanation && !explanationIsFinished(current)) {
           current.explanationLines.push(value)
         } else if (isComplete(current) || (current.options.length > 0 && lastWasBlank)) {
           // Prose after a finished question — or after a blank line below an
