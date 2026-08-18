@@ -1,3 +1,4 @@
+import logo from '../assets/drillmcq-logo.png'
 import type { SavedQuiz } from '../types/quiz'
 import type { View } from '../types/navigation'
 import { progressSummary } from '../utils/library'
@@ -68,11 +69,19 @@ export function HomeDashboard({
 
   return (
     <div className="animate-fade-slide-in space-y-8">
-      <section>
+      <section className="text-center">
+        {/* The lockup carries the wordmark, so the image's alt text *is*
+            the heading — a sr-only twin would read the name twice. */}
         <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">
-          Drill<span className="text-indigo-600 dark:text-indigo-400">MCQ</span>
+          <img
+            src={logo}
+            alt="DrillMCQ"
+            width={512}
+            height={517}
+            className="mx-auto h-auto w-44 sm:w-52"
+          />
         </h1>
-        <p className="mt-1 text-slate-600 dark:text-slate-400">
+        <p className="mt-2 text-slate-600 dark:text-slate-400">
           Practise smarter. Test yourself. Improve. Everything stays in your browser.
         </p>
       </section>

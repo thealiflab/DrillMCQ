@@ -1,12 +1,6 @@
 <div align="center">
 
-<h1>
-
-🎯
-
-</h1>
-
-<h1>DrillMCQ</h1>
+<img src="src/assets/drillmcq-logo.png" alt="DrillMCQ" width="320" />
 
 <p><strong>Practice smarter. Test yourself.</strong></p>
 

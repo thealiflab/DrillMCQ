@@ -1,3 +1,4 @@
+import logoMark from '../assets/drillmcq-mark.png'
 import type { Theme } from '../services/storage'
 import type { View } from '../types/navigation'
 import { VIEWS } from '../types/navigation'
@@ -42,6 +43,8 @@ export function AppNav({
             aria-label="DrillMCQ — go to home"
             className="flex shrink-0 items-center gap-2 rounded-lg px-1 py-1 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-500"
           >
+            {/* Decorative: the button already carries the accessible name. */}
+            <img src={logoMark} alt="" aria-hidden className="size-8 shrink-0" />
             <span className="text-lg font-bold tracking-tight">
               Drill<span className="text-indigo-600 dark:text-indigo-400">MCQ</span>
             </span>
