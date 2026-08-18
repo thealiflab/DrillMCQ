@@ -104,11 +104,60 @@ hidden: you get the quiz bar instead, and leaving asks first.
 
 ## Screenshots
 
-> _Add screenshots here_
->
-> ![Setup screen](docs/screenshots/setup.png)
-> ![Quiz screen](docs/screenshots/quiz.png)
-> ![Results screen](docs/screenshots/results.png)
+A full run through the app, in the order you meet it.
+
+<table>
+  <tr>
+    <td width="50%">
+      <img src="assets/screenshots/1_HomePage.png" alt="Home dashboard with Create Quiz, Quiz Library and Results tiles" />
+      <p align="center"><sub><b>1 · Home</b> — pick up an unfinished run, jump into a saved quiz, or start a new one. Recent results sit underneath.</sub></p>
+    </td>
+    <td width="50%">
+      <img src="assets/screenshots/2_PasteMCQs.png" alt="Create Quiz paste step with plain text questions and a live preview" />
+      <p align="center"><sub><b>2 · Paste</b> — drop in plain text (or JSON). The parser runs as you type: “5 questions detected” and a live preview, all in the browser.</sub></p>
+    </td>
+  </tr>
+  <tr>
+    <td width="50%">
+      <img src="assets/screenshots/3_SettingQuiz.png" alt="Review step: save to library, shuffle, timer, pass mark and category filters" />
+      <p align="center"><sub><b>3 · Review &amp; configure</b> — save the set to your library, then choose shuffling, a timer, the pass mark, and which categories to include.</sub></p>
+    </td>
+    <td width="50%">
+      <img src="assets/screenshots/4_Options.png" alt="Active question with the answer checked and the explanation shown" />
+      <p align="center"><sub><b>4 · Answer</b> — pick an option and, when you want it, <b>Check Answer</b> reveals the verdict and the explanation without ending the quiz.</sub></p>
+    </td>
+  </tr>
+  <tr>
+    <td width="50%">
+      <img src="assets/screenshots/5_MultipleChoice.png" alt="Select all that apply question with two correct options ticked" />
+      <p align="center"><sub><b>5 · Select all that apply</b> — a question with more than one correct answer becomes multi-select automatically. Nothing to configure.</sub></p>
+    </td>
+    <td width="50%">
+      <img src="assets/screenshots/6_EndResult.png" alt="Result screen showing 100 percent, a PASS badge and confetti" />
+      <p align="center"><sub><b>6 · Result</b> — score ring, pass/fail against your own pass mark, the correct/incorrect/skipped split, and a full answer review below.</sub></p>
+    </td>
+  </tr>
+  <tr>
+    <td width="50%">
+      <img src="assets/screenshots/7_QuizLibrary.png" alt="Quiz Library card showing categories, last score, best score and attempts" />
+      <p align="center"><sub><b>7 · Quiz Library</b> — every saved set with its categories, last and best score, and attempt count. Resume an unfinished run or start again.</sub></p>
+    </td>
+    <td width="50%">
+      <img src="assets/screenshots/8_Result.png" alt="Results history listing past attempts newest first" />
+      <p align="center"><sub><b>8 · Results history</b> — every attempt, newest first. Open any one to replay its full review, scored against the pass mark it was taken under.</sub></p>
+    </td>
+  </tr>
+  <tr>
+    <td width="50%">
+      <img src="assets/screenshots/9_ConfigureAI.png" alt="AI assistant settings dialog with provider, model and API key fields" />
+      <p align="center"><sub><b>9 · AI assistant (optional)</b> — bring your own key. It goes straight from your browser to the provider, and is only stored if you ask for it.</sub></p>
+    </td>
+    <td width="50%">
+      <img src="assets/screenshots/10_SelectingAIAssistant.png" alt="Provider dropdown open showing OpenAI, Google Gemini and Anthropic Claude" />
+      <p align="center"><sub><b>10 · Choose a provider</b> — OpenAI, Google Gemini or Anthropic Claude. Leave the whole thing off and the app behaves exactly as before.</sub></p>
+    </td>
+  </tr>
+</table>
 
 ## Tech Stack
 
