@@ -228,6 +228,99 @@ Answer: A`)
   })
 })
 
+describe('"Sol:" answer lines', () => {
+  // Textbook and coaching-site dumps label the answer "Sol:" and restate the
+  // winning option in full, one blank line between every single line.
+  const SOL_PASTE = `Which of the following are the basic categories of chemical signaling?
+
+(a) Paracrine signaling
+
+(b) Autocrine signaling
+
+(c) Endocrine signaling
+
+(d) All of the above
+
+Sol: (d) All of the above.
+
+Cell signaling is __________.
+
+(a) Intercellular
+
+(b) Intracellular
+
+(c) Both (a) and (b)
+
+(d) None of the above
+
+Sol: (c) Both (a) and (b).`
+
+  it('reads "Sol:" as an answer line', () => {
+    const parsed = parseMcqText(SOL_PASTE)
+
+    expect(parsed.skipped).toBe(0)
+    expect(parsed.questions).toHaveLength(2)
+    expect(parsed.questions[0].question).toBe(
+      'Which of the following are the basic categories of chemical signaling?',
+    )
+    expect(parsed.questions[0].correctAnswers).toEqual(['All of the above'])
+  })
+
+  it('keeps a labelled answer whose option text contains "and" single', () => {
+    // "(c) Both (a) and (b)." must not be split on "and" into (a) + (b).
+    expect(parseMcqText(SOL_PASTE).questions[1].correctAnswers).toEqual(['Both (a) and (b)'])
+  })
+
+  it('keeps a labelled answer whose option text contains a comma single', () => {
+    const parsed = parseMcqText(`Which statement is true about cell signaling?
+
+(a) In multicellular organisms, cells communicate using hormones
+
+(b) None of the above
+
+Sol: (a) In multicellular organisms, cells communicate using hormones`)
+
+    expect(parsed.questions[0].correctAnswers).toEqual([
+      'In multicellular organisms, cells communicate using hormones',
+    ])
+  })
+
+  it('accepts the "Solution:" and "Soln:" spellings', () => {
+    const parsed = parseMcqText(`Which is a liquid?
+
+(a) Water
+
+(b) Sand
+
+Solution: (a) Water.
+
+Which letter comes second?
+
+(a) Alpha
+
+(b) Beta
+
+Soln: b`)
+
+    expect(parsed.skipped).toBe(0)
+    expect(parsed.questions.map((q) => q.correctAnswers)).toEqual([['Water'], ['Beta']])
+  })
+
+  it('still splits a genuine multi-answer "Sol:" line', () => {
+    const parsed = parseMcqText(`Which of these are gases?
+
+(a) Oxygen
+
+(b) Iron
+
+(c) Nitrogen
+
+Sol: (a), (c)`)
+
+    expect(parsed.questions[0].correctAnswers).toEqual(['Oxygen', 'Nitrogen'])
+  })
+})
+
 describe('checkbox-marked pastes', () => {
   /** Exam-dump shape: titled header, "❏" options, the answer repeated under "✓". */
   const EXAM_BLOCK = `AI Practitioner Exam Question 1

@@ -121,7 +121,10 @@ function isNoise(line: string): boolean {
   return NOISE_RES.some((re) => re.test(trimmed))
 }
 
-const ANSWER_RE = /^\s*(?:correct\s*answers?|answers?|ans|correct)\s*[:\-–—]\s*(.+)$/i
+// "Sol:" / "Soln:" / "Solution:" are how textbook and coaching-site dumps
+// label the answer; they mean exactly what "Answer:" means here.
+const ANSWER_RE =
+  /^\s*(?:correct\s*answers?|answers?|ans|correct|solutions?|soln?)\s*[:\-–—]\s*(.+)$/i
 const EXPLANATION_RE = /^\s*(?:explanation|reason|rationale|because|why)\s*[:\-–—]\s*(.*)$/i
 const CATEGORY_RE = /^\s*(?:category|topic|subject)\s*[:\-–—]\s*(.+)$/i
 const LETTER_OPTION_RE = /^\s*\(?([A-Ha-h])[.)\]:]\s+(.+)$/
@@ -260,6 +263,17 @@ function resolveAnswers(raw: string, options: string[]): string[] | null {
 
   const exact = options.find((o) => norm(o) === norm(value))
   if (exact) return [exact]
+
+  // "(c) Both (a) and (b)." — a label in front of the option's own words. This
+  // has to be tried before the split too, for the same reason the exact match
+  // above does: an option containing "and"/"," would otherwise be shredded
+  // into a multi-answer the paste never meant.
+  const labelled = /^\(?([A-Ha-h])[.)\]:]\s*(.+)$/.exec(value)
+  if (labelled) {
+    const rest = labelled[2].trim().replace(/[.;,]+$/, '')
+    const match = options.find((o) => norm(o) === norm(rest))
+    if (match) return [match]
+  }
 
   // "A, C" / "a, b and d" / "B; D": every part has to land on a distinct
   // option, otherwise this wasn't a list and the single-answer path is right.
