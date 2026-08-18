@@ -16,9 +16,7 @@
 <hr />
 
 <p>
-  Paste quiz questions as plain text or JSON and get a professional online-exam
-  experience — parsing, timing, scoring, and review, with an optional
-  bring-your-own-key AI assistant.<br />
+  DrillMCQ is a fully client-side quiz web app. You paste MCQs as plain text or JSON (either generated from LLMs or copied over from any sources), and it parses them into an interactive quiz simulator with shuffling, a timer, scoring, pass/fail thresholds, and per-question review. An optional bring-your-own-key AI assistant can format messy pastes, repair JSON, verify answers, and explain results.<br />
   <strong>No backend, no database: everything runs in your browser.</strong>
 </p>
 
@@ -39,7 +37,7 @@
   - [Test](#test)
 - [Importing Questions](#importing-questions)
   - [Plain text format](#plain-text-format)
-  - [Prompt template for AI-generated questions](#prompt-template-for-ai-generated-questions)
+  - [**⭐ Prompt template for AI-generated questions**](#-prompt-template-for-ai-generated-questions)
   - [Quiz JSON schema](#quiz-json-schema)
 - [Check Answer](#check-answer)
 - [Multiple correct answers](#multiple-correct-answers)
@@ -245,12 +243,17 @@ Parsing rules:
 - **Categories** use `Category:`, `Topic:`, or `Subject:`
 - Malformed questions are skipped with a per-line error message; the rest of the bank still loads
 
-### Prompt template for AI-generated questions
+---
 
-Want a chatbot to write the questions? Copy the block below (hover it and click
-the copy icon), type your topic on the first line, and send it to ChatGPT,
-Claude, Gemini, or any other assistant. Paste the reply straight into the
-**Plain text** tab — no clean-up needed.
+### ⭐ Prompt template for AI-generated questions
+
+> [!TIP]
+> **The fastest way to fill the app with questions — no typing, no formatting.**
+>
+> Copy the block below (hover it and click the copy icon), type your topic on
+> the first line, and send it to ChatGPT, Claude, Gemini, or any other
+> assistant. Paste the reply straight into the **Plain text** tab — no
+> clean-up needed.
 
 ```text
 Topic: [User input: Describe your topic that you want to generate the MCQ]
@@ -283,6 +286,8 @@ The **Plain text** tab previews exactly what was parsed before you generate the
 quiz, so you can see the question count, any skipped blocks, and warnings first.
 If a reply still comes back messy, the optional **Format with AI** button can
 tidy it up in place.
+
+---
 
 ### Quiz JSON schema
 
